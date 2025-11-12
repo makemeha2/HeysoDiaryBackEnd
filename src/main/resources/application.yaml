@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: HeysoDiaryBackEnd
+  profiles:
+    active: local
+  rsocket:
+    server:
+      port: 8080
