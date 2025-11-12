@@ -1,2 +1,16 @@
 server:
   port: 19090
+
+spring:
+  datasource:
+    # secret-key는 환경변수로 설정
+    url: jdbc:p6spy:mariadb://localhost:3306/heysodiary
+    username: ENC(hQiz+S56g0lxwDtqy2pkFBIYalru1mZcmQv894o8uV5Ol2el+sH6tiGKQ7QdMDYP)                                 # 사용자명 (예시)
+    password: ENC(0rC5ohNoxi5U68zaKGRLL1wt0jSXeoMfyWLNlD9M9hWzMY0H/GGfWTGVCvy9Obuq)                                 # 비밀번호 (예시)
+    driver-class-name: com.p6spy.engine.spy.P6SpyDriver #org.mariadb.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 50MB     # 하나의 파일의 최대 사이즈
+      max-request-size: 60MB  # 한번의 요청으로 허용가능한 여러개 파일의 합계 사이즈
+  mvc:
+    log-request-details: true # 로그에 API 요청 파라미터까지 보도록 처리, 반드시 운영에서는 비활성화
