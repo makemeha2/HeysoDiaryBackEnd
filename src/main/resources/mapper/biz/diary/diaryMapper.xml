@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper">
+
+    <resultMap id="DiarySummaryResultMap" type="heyso.HeysoDiaryBackEnd.diary.model.DiarySummary">
+        <id column="diary_id" property="diaryId"/>
+        <result column="user_id" property="authorId"/>
+        <result column="author_nickname" property="authorNickname"/>
+        <result column="title" property="title"/>
+        <result column="content_md" property="contentMd"/>
+        <result column="diary_date" jdbcType="DATE" property="diaryDate"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <select id="selectDiaryList" resultMap="DiarySummaryResultMap">
+        SELECT
+            d.diary_id,
+            d.user_id,
+            u.nickname AS author_nickname,
+            d.title,
+            d.content_md,
+            d.diary_date,
+            d.created_at,
+            d.updated_at
+        FROM tb_diary d
+        INNER JOIN tb_user u ON u.user_id = d.user_id
+        WHERE d.is_deleted = 0
+        <if test="request.userId != null">
+            AND d.user_id = #{request.userId}
+        </if>
+        ORDER BY d.diary_date DESC, d.created_at DESC
+        LIMIT #{request.offset}, #{request.size}
+    </select>
+</mapper>
