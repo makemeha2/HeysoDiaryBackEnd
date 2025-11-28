@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.user.mapper.UserMapper">
+
+    <!-- tb_user -->
+    <select id="selectUserById" parameterType="long" resultType="heyso.HeysoDiaryBackEnd.user.model.User">
+        SELECT
+            user_id,
+            email,
+            nickname,
+            role,
+            status,
+            created_at,
+            updated_at
+        FROM tb_user
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectUserByEmail" parameterType="string" resultType="heyso.HeysoDiaryBackEnd.user.model.User">
+        SELECT
+            user_id,
+            email,
+            nickname,
+            role,
+            status,
+            created_at,
+            updated_at
+        FROM tb_user
+        WHERE email = #{email}
+    </select>
+
+    <insert id="insertUser" parameterType="heyso.HeysoDiaryBackEnd.user.model.User"
+            useGeneratedKeys="true" keyProperty="userId">
+        INSERT INTO tb_user (
+            email, nickname, role, status, created_at, updated_at
+        )
+        VALUES (
+            #{email},
+            #{nickname},
+            #{role},
+            #{status},
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <!-- tb_user_auth -->
+    <select id="selectUserAuthByProviderAndProviderUserId"
+            resultType="heyso.HeysoDiaryBackEnd.user.model.UserAuth">
+        SELECT
+            user_auth_id,
+            user_id,
+            auth_provider,
+            provider_user_id,
+            login_id,
+            password_hash,
+            last_login_at,
+            created_at,
+            updated_at
+        FROM tb_user_auth
+        WHERE auth_provider = #{authProvider}
+          AND provider_user_id = #{providerUserId}
+    </select>
+
+    <insert id="insertUserAuth" parameterType="heyso.HeysoDiaryBackEnd.user.model.UserAuth"
+            useGeneratedKeys="true" keyProperty="userAuthId">
+        INSERT INTO tb_user_auth (
+            user_id,
+            auth_provider,
+            provider_user_id,
+            login_id,
+            password_hash,
+            last_login_at,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{userId},
+            #{authProvider},
+            #{providerUserId},
+            #{loginId},
+            #{passwordHash},
+            NOW(),
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <update id="updateUserAuthLastLoginAt" parameterType="long">
+        UPDATE tb_user_auth
+        SET last_login_at = NOW(),
+            updated_at    = NOW()
+        WHERE user_auth_id = #{userAuthId}
+    </update>
+
+</mapper>
