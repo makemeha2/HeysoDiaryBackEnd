@@ -34,4 +34,26 @@
         ORDER BY d.diary_date DESC, d.created_at DESC
         LIMIT #{request.offset}, #{request.size}
     </select>
+
+    <insert id="insertDiary" parameterType="heyso.HeysoDiaryBackEnd.diary.model.Diary"
+            useGeneratedKeys="true" keyProperty="diaryId">
+        INSERT INTO tb_diary (
+            user_id,
+            title,
+            content_md,
+            diary_date,
+            is_deleted,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{userId},
+            #{title},
+            #{contentMd},
+            #{diaryDate},
+            0,
+            NOW(),
+            NOW()
+        )
+    </insert>
 </mapper>
