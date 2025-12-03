@@ -23,6 +23,8 @@ public class DiaryService {
     }
 
     public DiaryListResponse getDiaryList(DiaryListRequest request) {
+        // TODO : 사용자의 status가 BLOCKED 이거나 INACTIVE일 경우 return;
+
         List<DiarySummary> diaries = diaryMapper.selectDiaryList(request);
         List<DiarySummaryResponse> responses = diaries.stream()
                 .map(DiarySummaryResponse::from)
@@ -31,6 +33,8 @@ public class DiaryService {
     }
 
     public DiaryCreateResponse createDiary(DiaryCreateRequest request) {
+        // TODO : 사용자의 status가 BLOCKED 이거나 INACTIVE일 경우 return;
+
         Diary diary = new Diary();
         diary.setUserId(request.getUserId());
         diary.setTitle(request.getTitle());

@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController
-@RequestMapping("/api/diaries")
+@RequestMapping("/api/diary")
 public class DiaryController {
 
     private final DiaryService diaryService;

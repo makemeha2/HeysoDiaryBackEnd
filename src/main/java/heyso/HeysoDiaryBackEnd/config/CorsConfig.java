@@ -16,6 +16,7 @@ public class CorsConfig {
         config.setAllowCredentials(true);
         // config.addAllowedOriginPattern("*");
         config.addAllowedOrigin("http://localhost:5173");
+        config.addAllowedOrigin("http://127.0.0.1");
 
         config.addAllowedHeader("*");
         config.addAllowedMethod("*"); // GET, POST, PUT, DELETE 등 모든 메소드 허용
