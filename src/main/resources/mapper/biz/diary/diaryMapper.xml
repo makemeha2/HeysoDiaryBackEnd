@@ -56,4 +56,46 @@
             NOW()
         )
     </insert>
+
+    <!-- ====================== Tag 관련 ====================== -->
+
+    <select id="selectTagIdByName" parameterType="string" resultType="long">
+        SELECT tag_id
+        FROM tb_tag
+        WHERE tag_name = #{tagName}
+    </select>
+
+    <insert id="insertTag" parameterType="string">
+        INSERT IGNORE INTO tb_tag (
+            tag_name,
+            created_at
+        )
+        VALUES (
+            #{tagName},
+            NOW()
+        )
+    </insert>
+
+    <insert id="insertDiaryTag">
+        INSERT IGNORE INTO tb_diary_tag (
+            diary_id,
+            tag_id
+        )
+        VALUES (
+            #{diaryId},
+            #{tagId}
+        )
+    </insert>
+
+    <select id="selectDiaryTags" resultType="heyso.HeysoDiaryBackEnd.diary.model.DiaryTag">
+        SELECT
+            dt.diary_id,
+            t.tag_name
+        FROM tb_diary_tag dt
+        INNER JOIN tb_tag t ON t.tag_id = dt.tag_id
+        WHERE dt.diary_id IN
+        <foreach collection="diaryIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
 </mapper>

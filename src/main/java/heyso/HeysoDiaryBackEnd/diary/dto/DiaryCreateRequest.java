@@ -2,19 +2,15 @@ package heyso.HeysoDiaryBackEnd.diary.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
 public class DiaryCreateRequest {
-
-    @Positive
-    @NotNull
-    private Long userId;
 
     @NotBlank
     private String title;
@@ -24,4 +20,6 @@ public class DiaryCreateRequest {
 
     @NotNull
     private LocalDate diaryDate;
+
+    private List<String> tags;
 }

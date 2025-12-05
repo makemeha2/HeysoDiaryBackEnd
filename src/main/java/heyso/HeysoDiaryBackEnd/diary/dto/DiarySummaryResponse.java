@@ -6,6 +6,7 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -19,6 +20,7 @@ public class DiarySummaryResponse {
     private LocalDate diaryDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<String> tags;
 
     public static DiarySummaryResponse from(DiarySummary diarySummary) {
         DiarySummaryResponse response = new DiarySummaryResponse();
@@ -30,6 +32,7 @@ public class DiarySummaryResponse {
         response.setDiaryDate(diarySummary.getDiaryDate());
         response.setCreatedAt(diarySummary.getCreatedAt());
         response.setUpdatedAt(diarySummary.getUpdatedAt());
+        response.setTags(diarySummary.getTags());
         return response;
     }
 }
