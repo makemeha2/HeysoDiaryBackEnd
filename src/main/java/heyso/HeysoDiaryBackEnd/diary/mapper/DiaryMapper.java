@@ -1,6 +1,7 @@
 package heyso.HeysoDiaryBackEnd.diary.mapper;
 
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryListRequest;
+import heyso.HeysoDiaryBackEnd.diary.model.DiaryMonthlyCount;
 import heyso.HeysoDiaryBackEnd.diary.model.Diary;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
 import heyso.HeysoDiaryBackEnd.diary.model.DiaryTag;
@@ -12,6 +13,9 @@ import java.util.List;
 @Mapper
 public interface DiaryMapper {
     List<DiarySummary> selectDiaryList(@Param("request") DiaryListRequest request);
+
+    List<DiaryMonthlyCount> selectDiaryMonthlyCounts(@Param("userId") Long userId,
+                                                     @Param("diaryMonth") String diaryMonth);
 
     void insertDiary(Diary diary);
 

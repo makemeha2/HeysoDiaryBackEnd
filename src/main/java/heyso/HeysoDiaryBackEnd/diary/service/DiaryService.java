@@ -8,6 +8,7 @@ import heyso.HeysoDiaryBackEnd.diary.dto.DiaryCreateResponse;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.diary.model.Diary;
+import heyso.HeysoDiaryBackEnd.diary.model.DiaryMonthlyCount;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
 import heyso.HeysoDiaryBackEnd.diary.model.DiaryTag;
 import heyso.HeysoDiaryBackEnd.user.model.User;
@@ -16,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -40,6 +40,15 @@ public class DiaryService {
                 .collect(Collectors.toList());
                 
         return DiaryListResponse.of(responses);
+    }
+
+    public List<DiaryMonthlyCount> getMonthlyDiaryCounts(String month) {
+        User user = SecurityUtils.getCurrentUserOrThrow();
+
+        return diaryMapper.selectDiaryMonthlyCounts(
+                user.getUserId(),
+                month
+        );
     }
 
     @Transactional

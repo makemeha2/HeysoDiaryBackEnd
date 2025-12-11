@@ -28,11 +28,21 @@
         FROM tb_diary d
         INNER JOIN tb_user u ON u.user_id = d.user_id
         WHERE d.is_deleted = 0
-        <if test="request.userId != null">
             AND d.user_id = #{request.userId}
-        </if>
         ORDER BY d.diary_date DESC, d.created_at DESC
         LIMIT #{request.offset}, #{request.size}
+    </select>
+
+    <select id="selectDiaryMonthlyCounts" resultType="heyso.HeysoDiaryBackEnd.diary.model.DiaryMonthlyCount">
+        SELECT
+            td.diary_date,
+            COUNT(*) AS diary_count
+        FROM tb_diary td
+        WHERE td.user_id = #{userId}
+          AND td.diary_date LIKE CONCAT(#{diaryMonth}, '%')
+          AND td.is_deleted = 0
+        GROUP BY td.diary_date
+        ORDER BY td.diary_date
     </select>
 
     <insert id="insertDiary" parameterType="heyso.HeysoDiaryBackEnd.diary.model.Diary"
