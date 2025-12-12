@@ -51,6 +51,17 @@ public class DiaryService {
         );
     }
 
+    public DiaryListResponse getDailyDiaryList(String day) {
+        User user = SecurityUtils.getCurrentUserOrThrow();
+
+        List<DiarySummary> diaries = diaryMapper.selectDailyDiaryList(user.getUserId(), day);
+        List<DiarySummaryResponse> responses = diaries.stream()
+                .map(DiarySummaryResponse::from)
+                .collect(Collectors.toList());
+
+        return DiaryListResponse.of(responses);
+    }
+
     @Transactional
     public DiaryCreateResponse createDiary(DiaryCreateRequest request) {
         // TODO : 사용자의 status가 BLOCKED 이거나 INACTIVE일 경우 return;

@@ -33,6 +33,24 @@
         LIMIT #{request.offset}, #{request.size}
     </select>
 
+    <select id="selectDailyDiaryList" resultMap="DiarySummaryResultMap">
+        SELECT
+            d.diary_id,
+            d.user_id,
+            u.nickname AS author_nickname,
+            d.title,
+            d.content_md,
+            d.diary_date,
+            d.created_at,
+            d.updated_at
+        FROM tb_diary d
+        INNER JOIN tb_user u ON u.user_id = d.user_id
+        WHERE d.is_deleted = 0
+            AND d.user_id = #{userId}
+            AND d.diary_date = #{diaryDate}
+        ORDER BY d.created_at DESC
+    </select>
+
     <select id="selectDiaryMonthlyCounts" resultType="heyso.HeysoDiaryBackEnd.diary.model.DiaryMonthlyCount">
         SELECT
             td.diary_date,

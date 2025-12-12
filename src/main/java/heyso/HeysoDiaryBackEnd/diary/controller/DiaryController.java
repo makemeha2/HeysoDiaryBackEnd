@@ -43,6 +43,12 @@ public class DiaryController {
         return diaryService.getMonthlyDiaryCounts(month);
     }
 
+    @GetMapping("/daily")
+    public DiaryListResponse getDailyDiaryList(
+            @RequestParam("day") @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "day must be in yyyy-MM-dd format") String day) {
+        return diaryService.getDailyDiaryList(day);
+    }
+
     @PostMapping
     public ResponseEntity<DiaryCreateResponse> createDiary(
             @Valid @RequestBody DiaryCreateRequest request) {

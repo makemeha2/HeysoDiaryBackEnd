@@ -14,6 +14,9 @@ import java.util.List;
 public interface DiaryMapper {
     List<DiarySummary> selectDiaryList(@Param("request") DiaryListRequest request);
 
+    List<DiarySummary> selectDailyDiaryList(@Param("userId") Long userId,
+                                            @Param("diaryDate") String diaryDate);
+
     List<DiaryMonthlyCount> selectDiaryMonthlyCounts(@Param("userId") Long userId,
                                                      @Param("diaryMonth") String diaryMonth);
 
