@@ -63,6 +63,22 @@
         ORDER BY td.diary_date
     </select>
 
+    <select id="selectDiaryById" resultMap="DiarySummaryResultMap">
+        SELECT
+            d.diary_id,
+            d.user_id,
+            u.nickname AS author_nickname,
+            d.title,
+            d.content_md,
+            d.diary_date,
+            d.created_at,
+            d.updated_at
+        FROM tb_diary d
+        INNER JOIN tb_user u ON u.user_id = d.user_id
+        WHERE d.diary_id = #{diaryId}
+          AND d.is_deleted = 0
+    </select>
+
     <insert id="insertDiary" parameterType="heyso.HeysoDiaryBackEnd.diary.model.Diary"
             useGeneratedKeys="true" keyProperty="diaryId">
         INSERT INTO tb_diary (
@@ -84,6 +100,22 @@
             NOW()
         )
     </insert>
+
+    <update id="updateDiary">
+        UPDATE tb_diary
+        SET
+            title = #{title},
+            content_md = #{contentMd},
+            diary_date = #{diaryDate},
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+          AND is_deleted = 0
+    </update>
+
+    <delete id="deleteDiaryTags">
+        DELETE FROM tb_diary_tag
+        WHERE diary_id = #{diaryId}
+    </delete>
 
     <!-- ====================== Tag 관련 ====================== -->
 
@@ -114,6 +146,23 @@
             #{tagId}
         )
     </insert>
+
+    <select id="selectTagNamesByDiaryId" resultType="string">
+        SELECT
+            t.tag_name
+        FROM tb_diary_tag dt
+        INNER JOIN tb_tag t ON t.tag_id = dt.tag_id
+        WHERE dt.diary_id = #{diaryId}
+    </select>
+
+    <select id="selectDiaryTagsByDiaryId" resultType="heyso.HeysoDiaryBackEnd.diary.model.DiaryTag">
+        SELECT
+            dt.diary_id,
+            t.tag_name
+        FROM tb_diary_tag dt
+        INNER JOIN tb_tag t ON t.tag_id = dt.tag_id
+        WHERE dt.diary_id = #{diaryId}
+    </select>
 
     <select id="selectDiaryTags" resultType="heyso.HeysoDiaryBackEnd.diary.model.DiaryTag">
         SELECT

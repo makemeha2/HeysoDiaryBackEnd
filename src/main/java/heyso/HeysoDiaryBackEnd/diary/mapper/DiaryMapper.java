@@ -8,6 +8,7 @@ import heyso.HeysoDiaryBackEnd.diary.model.DiaryTag;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Mapper
@@ -20,7 +21,16 @@ public interface DiaryMapper {
     List<DiaryMonthlyCount> selectDiaryMonthlyCounts(@Param("userId") Long userId,
                                                      @Param("diaryMonth") String diaryMonth);
 
+    DiarySummary selectDiaryById(@Param("diaryId") Long diaryId);
+
     void insertDiary(Diary diary);
+
+    int updateDiary(@Param("diaryId") Long diaryId,
+                    @Param("title") String title,
+                    @Param("contentMd") String contentMd,
+                    @Param("diaryDate") LocalDate diaryDate);
+
+    void deleteDiaryTags(@Param("diaryId") Long diaryId);
 
     /* ------------------------------ 태그 관련 ----------------------------------- */
 
@@ -29,6 +39,10 @@ public interface DiaryMapper {
     void insertTag(@Param("tagName") String tagName);
 
     void insertDiaryTag(@Param("diaryId") Long diaryId, @Param("tagId") Long tagId);
+
+    List<String> selectTagNamesByDiaryId(@Param("diaryId") Long diaryId);
+
+    List<DiaryTag> selectDiaryTagsByDiaryId(@Param("diaryId") Long diaryId);
 
     List<DiaryTag> selectDiaryTags(@Param("diaryIds") List<Long> diaryIds);
 }

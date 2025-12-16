@@ -8,7 +8,6 @@ import heyso.HeysoDiaryBackEnd.user.model.UserAuth;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
 
 import lombok.RequiredArgsConstructor;
