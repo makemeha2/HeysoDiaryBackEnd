@@ -5,7 +5,6 @@ import heyso.HeysoDiaryBackEnd.diary.dto.DiaryListResponse;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryCreateRequest;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryCreateResponse;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryEditRequest;
-import heyso.HeysoDiaryBackEnd.diary.dto.DiarySummaryResponse;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryDetailResponse;
 import heyso.HeysoDiaryBackEnd.diary.model.DiaryMonthlyCount;
 import heyso.HeysoDiaryBackEnd.diary.service.DiaryService;

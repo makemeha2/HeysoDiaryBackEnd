@@ -57,7 +57,7 @@ public class DiaryService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot view this diary");
         }
 
-        List<DiaryTag> tags = diaryMapper.selectDiaryTagsByDiaryId(diaryId);
+        List<String> tags = toTagNameList(diaryMapper.selectDiaryTagsByDiaryId(diaryId));
         return DiaryDetailResponse.from(diary, tags);
     }
 
@@ -118,7 +118,7 @@ public class DiaryService {
         diaryMapper.updateDiary(diaryId, request.getTitle(), request.getContentMd(), request.getDiaryDate());
 
         diaryMapper.deleteDiaryTags(diaryId);
-        upsertDiaryTags(diaryId, toTagNameList(request.getTags()));
+        upsertDiaryTags(diaryId, request.getTags());
     }
 
     private List<String> sanitizeTags(List<String> rawTags) {

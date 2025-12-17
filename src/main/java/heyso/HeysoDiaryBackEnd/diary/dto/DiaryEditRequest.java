@@ -2,7 +2,6 @@ package heyso.HeysoDiaryBackEnd.diary.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import heyso.HeysoDiaryBackEnd.diary.model.DiaryTag;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.Getter;
@@ -24,5 +23,5 @@ public class DiaryEditRequest {
     @NotNull
     private LocalDate diaryDate;
 
-    private List<DiaryTag> tags;
+    private List<String> tags;
 }

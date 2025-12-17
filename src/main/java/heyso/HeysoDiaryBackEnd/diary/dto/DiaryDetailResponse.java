@@ -1,7 +1,6 @@
 package heyso.HeysoDiaryBackEnd.diary.dto;
 
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
-import heyso.HeysoDiaryBackEnd.diary.model.DiaryTag;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,9 +19,9 @@ public class DiaryDetailResponse {
     private LocalDate diaryDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private List<DiaryTag> tags;
+    private List<String> tags;
 
-    public static DiaryDetailResponse from(DiarySummary diarySummary, List<DiaryTag> tags) {
+    public static DiaryDetailResponse from(DiarySummary diarySummary, List<String> tags) {
         DiaryDetailResponse response = new DiaryDetailResponse();
         response.setDiaryId(diarySummary.getDiaryId());
         response.setAuthorId(diarySummary.getAuthorId());
