@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.aichat.mapper.AiChatMapper">
+
+    <resultMap id="ChatConversationResultMap" type="heyso.HeysoDiaryBackEnd.aichat.model.ChatConversation">
+        <id column="conversation_id" property="conversationId"/>
+        <result column="user_id" property="userId"/>
+        <result column="title" property="title"/>
+        <result column="model" property="model"/>
+        <result column="system_prompt" property="systemPrompt"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="deleted_at" jdbcType="TIMESTAMP" property="deletedAt"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <resultMap id="ChatMessageResultMap" type="heyso.HeysoDiaryBackEnd.aichat.model.ChatMessage">
+        <id column="message_id" property="messageId"/>
+        <result column="conversation_id" property="conversationId"/>
+        <result column="role" property="role"/>
+        <result column="content" property="content"/>
+        <result column="content_format" property="contentFormat"/>
+        <result column="token_count" property="tokenCount"/>
+        <result column="parent_message_id" property="parentMessageId"/>
+        <result column="client_message_id" property="clientMessageId"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+    </resultMap>
+
+    <resultMap id="ChatSummaryResultMap" type="heyso.HeysoDiaryBackEnd.aichat.model.ChatConversationSummary">
+        <id column="conversation_id" property="conversationId"/>
+        <result column="summary" property="summary"/>
+        <result column="summary_version" property="summaryVersion"/>
+        <result column="last_message_id" property="lastMessageId"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <!-- ====================== Conversation ====================== -->
+
+    <select id="selectConversationList" resultMap="ChatConversationResultMap">
+        SELECT
+            conversation_id,
+            user_id,
+            title,
+            model,
+            system_prompt,
+            is_deleted,
+            deleted_at,
+            created_at,
+            updated_at
+        FROM tb_chat_conversation
+        WHERE user_id = #{userId}
+          AND is_deleted = 0
+        ORDER BY updated_at DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="selectConversationById" resultMap="ChatConversationResultMap">
+        SELECT
+            conversation_id,
+            user_id,
+            title,
+            model,
+            system_prompt,
+            is_deleted,
+            deleted_at,
+            created_at,
+            updated_at
+        FROM tb_chat_conversation
+        WHERE conversation_id = #{conversationId}
+          AND is_deleted = 0
+    </select>
+
+    <insert id="insertConversation" parameterType="heyso.HeysoDiaryBackEnd.aichat.model.ChatConversation"
+            useGeneratedKeys="true" keyProperty="conversationId">
+        INSERT INTO tb_chat_conversation (
+            user_id,
+            title,
+            model,
+            system_prompt,
+            is_deleted,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{userId},
+            #{title},
+            #{model},
+            #{systemPrompt},
+            0,
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <update id="updateConversation">
+        UPDATE tb_chat_conversation
+        SET
+            title = #{title},
+            model = COALESCE(#{model}, model),
+            system_prompt = #{systemPrompt},
+            updated_at = NOW()
+        WHERE conversation_id = #{conversationId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+    </update>
+
+    <update id="softDeleteConversation">
+        UPDATE tb_chat_conversation
+        SET
+            is_deleted = 1,
+            deleted_at = NOW(),
+            updated_at = NOW()
+        WHERE conversation_id = #{conversationId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+    </update>
+
+    <!-- ====================== Messages ====================== -->
+
+    <select id="selectMessages" resultMap="ChatMessageResultMap">
+        SELECT
+            message_id,
+            conversation_id,
+            role,
+            content,
+            content_format,
+            token_count,
+            parent_message_id,
+            client_message_id,
+            created_at
+        FROM tb_chat_message
+        WHERE conversation_id = #{conversationId}
+        <if test="afterMessageId != null">
+            AND message_id &gt; #{afterMessageId}
+        </if>
+        ORDER BY message_id ASC
+        LIMIT #{limit}
+    </select>
+
+    <insert id="insertMessage" parameterType="heyso.HeysoDiaryBackEnd.aichat.model.ChatMessage"
+            useGeneratedKeys="true" keyProperty="messageId">
+        INSERT INTO tb_chat_message (
+            conversation_id,
+            role,
+            content,
+            content_format,
+            token_count,
+            parent_message_id,
+            client_message_id,
+            created_at
+        )
+        VALUES (
+            #{conversationId},
+            #{role},
+            #{content},
+            #{contentFormat},
+            #{tokenCount},
+            #{parentMessageId},
+            #{clientMessageId},
+            NOW()
+        )
+    </insert>
+
+    <!-- ====================== Summary ====================== -->
+
+    <select id="selectSummary" resultMap="ChatSummaryResultMap">
+        SELECT
+            conversation_id,
+            summary,
+            summary_version,
+            last_message_id,
+            updated_at
+        FROM tb_chat_conversation_summary
+        WHERE conversation_id = #{conversationId}
+    </select>
+
+    <insert id="upsertSummary" parameterType="heyso.HeysoDiaryBackEnd.aichat.model.ChatConversationSummary">
+        INSERT INTO tb_chat_conversation_summary (
+            conversation_id,
+            summary,
+            summary_version,
+            last_message_id,
+            updated_at
+        )
+        VALUES (
+            #{conversationId},
+            #{summary},
+            #{summaryVersion},
+            #{lastMessageId},
+            NOW()
+        )
+        ON DUPLICATE KEY UPDATE
+            summary = VALUES(summary),
+            summary_version = VALUES(summary_version),
+            last_message_id = VALUES(last_message_id),
+            updated_at = NOW()
+    </insert>
+
+</mapper>
