@@ -1,5 +1,7 @@
 package heyso.HeysoDiaryBackEnd.aichat.controller;
 
+import heyso.HeysoDiaryBackEnd.aichat.dto.ChatAssistantReplyRequest;
+import heyso.HeysoDiaryBackEnd.aichat.dto.ChatAssistantReplyResponse;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatConversationCreateRequest;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatConversationCreateResponse;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatConversationDetailResponse;
@@ -80,6 +82,16 @@ public class AiChatController {
             @PathVariable @Positive Long conversationId,
             @Valid @RequestBody ChatMessageCreateRequest request) {
         ChatMessageCreateResponse response = aiChatService.createMessage(conversationId, request);
+        return ResponseEntity.status(201).body(response);
+    }
+
+    // ====================== Assistant Reply (OpenAI) ======================
+
+    @PostMapping("/conversations/{conversationId}/assistant-reply")
+    public ResponseEntity<ChatAssistantReplyResponse> createAssistantReply(
+            @PathVariable @Positive Long conversationId,
+            @Valid @RequestBody ChatAssistantReplyRequest request) {
+        ChatAssistantReplyResponse response = aiChatService.createAssistantReply(conversationId, request);
         return ResponseEntity.status(201).body(response);
     }
 

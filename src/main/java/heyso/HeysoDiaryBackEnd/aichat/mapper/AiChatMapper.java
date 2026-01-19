@@ -38,4 +38,10 @@ public interface AiChatMapper {
     ChatConversationSummary selectSummary(@Param("conversationId") Long conversationId);
 
     int upsertSummary(ChatConversationSummary summary);
+
+    // 최근 N개 메시지(최신부터) 조회용
+    List<ChatMessage> selectRecentMessages(@Param("conversationId") Long conversationId, @Param("limit") int limit);
+
+    // 사용량 로그
+    void insertUsageLog(heyso.HeysoDiaryBackEnd.aichat.model.ChatUsageLog usageLog);
 }

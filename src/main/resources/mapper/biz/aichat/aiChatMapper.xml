@@ -198,4 +198,48 @@
             updated_at = NOW()
     </insert>
 
+    <!-- ====================== Recent Messages (DESC) ====================== -->
+    <select id="selectRecentMessages" resultMap="ChatMessageResultMap">
+        SELECT
+            message_id,
+            conversation_id,
+            role,
+            content,
+            content_format,
+            token_count,
+            parent_message_id,
+            client_message_id,
+            created_at
+        FROM tb_chat_message
+        WHERE conversation_id = #{conversationId}
+        ORDER BY message_id DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- ====================== Usage Log ====================== -->
+    <insert id="insertUsageLog" parameterType="heyso.HeysoDiaryBackEnd.aichat.model.ChatUsageLog"
+            useGeneratedKeys="true" keyProperty="usageId">
+        INSERT INTO tb_chat_usage_log (
+            user_id,
+            conversation_id,
+            request_id,
+            model,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            cost_usd,
+            created_at
+        )
+        VALUES (
+            #{userId},
+            #{conversationId},
+            #{requestId},
+            #{model},
+            COALESCE(#{promptTokens}, 0),
+            COALESCE(#{completionTokens}, 0),
+            COALESCE(#{totalTokens}, 0),
+            #{costUsd},
+            NOW()
+        )
+    </insert>
 </mapper>

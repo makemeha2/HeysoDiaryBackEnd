@@ -1,6 +1,11 @@
 package heyso.HeysoDiaryBackEnd.aichat.service;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DuplicateKeyException;
@@ -9,6 +14,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
+import heyso.HeysoDiaryBackEnd.aichat.dto.ChatAssistantReplyRequest;
+import heyso.HeysoDiaryBackEnd.aichat.dto.ChatAssistantReplyResponse;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatConversationCreateRequest;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatConversationCreateResponse;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatConversationDetailResponse;
@@ -26,15 +35,23 @@ import heyso.HeysoDiaryBackEnd.aichat.mapper.AiChatMapper;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatConversation;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatConversationSummary;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatMessage;
+import heyso.HeysoDiaryBackEnd.aichat.model.ChatUsageLog;
+import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient;
+import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiProperties;
+import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiResponseParser;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.user.model.User;
 
 @Service
 public class AiChatService {
     private final AiChatMapper aiChatMapper;
+    private final OpenAiClient openAiClient;
+    private final OpenAiProperties openAiProperties;
 
-    public AiChatService(AiChatMapper aiChatMapper) {
+    public AiChatService(AiChatMapper aiChatMapper, OpenAiClient openAiClient, OpenAiProperties openAiProperties) {
         this.aiChatMapper = aiChatMapper;
+        this.openAiClient = openAiClient;
+        this.openAiProperties = openAiProperties;
     }
 
     // 채팅방 목록을 가져온다.
@@ -220,5 +237,142 @@ public class AiChatService {
         summary.setLastMessageId(request.getLastMessageId());
 
         aiChatMapper.upsertSummary(summary);
+    }
+
+    /// OpenAI Chat봇의 응답을 가져온다.
+    @Transactional
+    public ChatAssistantReplyResponse createAssistantReply(Long conversationId, ChatAssistantReplyRequest request) {
+        User user = SecurityUtils.getCurrentUserOrThrow();
+
+        ChatConversation conversation = aiChatMapper.selectConversationById(conversationId);
+        if (conversation == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found");
+        }
+        if (!conversation.getUserId().equals(user.getUserId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot access this conversation");
+        }
+
+        // 1) USER 메시지 저장
+        ChatMessage userMsg = new ChatMessage();
+        userMsg.setConversationId(conversationId);
+        userMsg.setRole("USER");
+        userMsg.setContent(request.getUserContent());
+        userMsg.setContentFormat("markdown");
+        userMsg.setParentMessageId(request.getParentMessageId());
+        userMsg.setClientMessageId(request.getUserClientMessageId());
+
+        try {
+            aiChatMapper.insertMessage(userMsg);
+        } catch (DuplicateKeyException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate clientMessageId in this conversation");
+        }
+
+        // 2) OpenAI input 구성
+        // - developer: conversation.systemPrompt
+        // - developer: summary(있으면)
+        // - messages: 최근 N개 메시지(최신->역순 정렬해서 시간순으로)
+        List<Map<String, Object>> input = new ArrayList<>();
+
+        if (conversation.getSystemPrompt() != null && !conversation.getSystemPrompt().isBlank()) {
+            input.add(msg("developer", conversation.getSystemPrompt()));
+        }
+
+        ChatConversationSummary summary = aiChatMapper.selectSummary(conversationId);
+        if (summary != null && summary.getSummary() != null && !summary.getSummary().isBlank()) {
+            input.add(msg("developer", openAiProperties.getSummaryPrefix() + summary.getSummary()));
+        }
+
+        List<ChatMessage> recentDesc = aiChatMapper.selectRecentMessages(conversationId,
+                openAiProperties.getContextMessageLimit());
+        Collections.reverse(recentDesc); // 시간순 정렬(오래된 -> 최신)
+
+        for (ChatMessage m : recentDesc) {
+            String role = mapRoleForOpenAi(m.getRole());
+            if (role == null)
+                continue;
+
+            // 방금 저장한 USER 메시지도 포함되도록 recentDesc에 들어있음
+            input.add(msg(role, m.getContent()));
+        }
+
+        // 3) OpenAI 호출
+        String model = (conversation.getModel() == null || conversation.getModel().isBlank())
+                ? "gpt-4o-mini"
+                : conversation.getModel();
+
+        JsonNode openAiRaw;
+        try {
+            openAiRaw = openAiClient.createResponse(model, input);
+        } catch (Exception e) {
+            // OpenAI 장애/네트워크 오류 시: USER 메시지는 남아있고 ASSISTANT는 없을 수 있음
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
+        }
+
+        String requestId = OpenAiResponseParser.extractRequestId(openAiRaw);
+        OpenAiResponseParser.Usage usage = OpenAiResponseParser.extractUsage(openAiRaw);
+        String assistantText = OpenAiResponseParser.extractAssistantText(openAiRaw);
+
+        if (assistantText == null || assistantText.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI returned empty assistant content");
+        }
+
+        // 4) ASSISTANT 메시지 저장
+        ChatMessage assistantMsg = new ChatMessage();
+        assistantMsg.setConversationId(conversationId);
+        assistantMsg.setRole("ASSISTANT");
+        assistantMsg.setContent(assistantText);
+        assistantMsg.setContentFormat(
+                request.getAssistantContentFormat() == null ? "markdown" : request.getAssistantContentFormat());
+        // token_count는 우리 DB 컬럼이고, OpenAI usage와 일치하지 않을 수 있어 null 유지
+        assistantMsg.setParentMessageId(userMsg.getMessageId());
+        assistantMsg.setClientMessageId(null);
+
+        aiChatMapper.insertMessage(assistantMsg);
+
+        // 5) usage log 저장(선택)
+        ChatUsageLog log = new ChatUsageLog();
+        log.setUserId(user.getUserId());
+        log.setConversationId(conversationId);
+        log.setRequestId(requestId);
+        log.setModel(model);
+        log.setPromptTokens(usage.promptTokens());
+        log.setCompletionTokens(usage.completionTokens());
+        log.setTotalTokens(usage.totalTokens());
+        // costUsd는 요금표 기반 계산이 필요해서 일단 null (원하면 여기서 계산 로직 추가)
+        log.setCostUsd((BigDecimal) null);
+
+        aiChatMapper.insertUsageLog(log);
+
+        return ChatAssistantReplyResponse.builder()
+                .userMessageId(userMsg.getMessageId())
+                .assistantMessageId(assistantMsg.getMessageId())
+                .model(model)
+                .requestId(requestId)
+                .promptTokens(usage.promptTokens())
+                .completionTokens(usage.completionTokens())
+                .totalTokens(usage.totalTokens())
+                .assistantContent(assistantText)
+                .build();
+    }
+
+    private static Map<String, Object> msg(String role, String content) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("role", role);
+        m.put("content", content);
+        return m;
+    }
+
+    private static String mapRoleForOpenAi(String dbRole) {
+        if (dbRole == null)
+            return null;
+
+        return switch (dbRole) {
+            // DB의 SYSTEM은 OpenAI의 developer로 승격
+            case "SYSTEM" -> "developer";
+            case "USER" -> "user";
+            case "ASSISTANT" -> "assistant";
+            // TOOL은 이번 버전에서는 제외(추후 tool-calling 붙이면 확장)
+            default -> null;
+        };
     }
 }

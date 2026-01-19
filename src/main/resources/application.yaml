@@ -27,3 +27,10 @@ app:
   oauth2:
     google:
       client-id: 804003243997-pp5313n2tiju5bgkracp3ua5b3s8fakk.apps.googleusercontent.com
+
+openai:
+  api-key: ${OPENAI_API_KEY}
+  base-url: https://api.openai.com
+  timeout-seconds: 30
+  context-message-limit: 30
+  summary-prefix: "Conversation summary:\n"
