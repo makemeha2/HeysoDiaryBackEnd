@@ -61,7 +61,7 @@ public class AiChatController {
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/conversations/{conversationId}")
+    @PostMapping("/conversations/{conversationId}/delete")
     public ResponseEntity<Void> deleteConversation(@PathVariable @Positive Long conversationId) {
         aiChatService.softDeleteConversation(conversationId);
         return ResponseEntity.ok().build();
@@ -102,7 +102,7 @@ public class AiChatController {
         return ResponseEntity.ok(aiChatService.getSummary(conversationId));
     }
 
-    @PutMapping("/conversations/{conversationId}/summary")
+    @PostMapping("/conversations/{conversationId}/summary")
     public ResponseEntity<Void> upsertSummary(
             @PathVariable @Positive Long conversationId,
             @Valid @RequestBody ChatSummaryUpsertRequest request) {
