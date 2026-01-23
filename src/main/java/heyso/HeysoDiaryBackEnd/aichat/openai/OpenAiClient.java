@@ -26,7 +26,7 @@ public class OpenAiClient {
      * @param messages  (role, content) 형태의 메시지들
      * @return assistant 텍스트
      */
-    public CallResponseSpec createResponseText(String modelName, List<RoleMessage> messages) {
+    public CallResponseSpec createResponseSpec(String modelName, List<RoleMessage> messages) {
         List<Message> springMessages = new ArrayList<>();
 
         for (RoleMessage m : messages) {

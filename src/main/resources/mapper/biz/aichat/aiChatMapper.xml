@@ -28,7 +28,7 @@
         <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
     </resultMap>
 
-    <resultMap id="ChatSummaryResultMap" type="heyso.HeysoDiaryBackEnd.aichat.model.ChatConversationSummary">
+    <resultMap id="ChatConversationSummaryResultMap" type="heyso.HeysoDiaryBackEnd.aichat.model.ChatConversationSummary">
         <id column="conversation_id" property="conversationId"/>
         <result column="summary" property="summary"/>
         <result column="summary_version" property="summaryVersion"/>
@@ -165,15 +165,44 @@
 
     <!-- ====================== Summary ====================== -->
 
-    <select id="selectSummary" resultMap="ChatSummaryResultMap">
+    <select id="selectSummaryByUser" resultMap="ChatConversationSummaryResultMap">
+        SELECT s.conversation_id, s.summary, s.summary_version, s.last_message_id, s.updated_at
+        FROM tb_chat_conversation_summary s
+        JOIN tb_chat_conversation c ON c.conversation_id = s.conversation_id
+        WHERE c.user_id = #{userId}
+        AND s.conversation_id = #{conversationId}
+        AND c.is_deleted = 0
+    </select>
+
+    <select id="countMessagesAfterByUser" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_chat_message m
+        JOIN tb_chat_conversation c ON c.conversation_id = m.conversation_id
+        WHERE c.user_id = #{userId}
+        AND m.conversation_id = #{conversationId}
+        AND m.message_id > #{afterMessageId}
+        AND c.is_deleted = 0
+    </select>
+
+    <select id="selectMessagesAfterByUser" resultMap="ChatMessageResultMap">
         SELECT
-            conversation_id,
-            summary,
-            summary_version,
-            last_message_id,
-            updated_at
-        FROM tb_chat_conversation_summary
-        WHERE conversation_id = #{conversationId}
+            m.message_id,
+            m.conversation_id,
+            m.role,
+            m.content,
+            m.content_format,
+            m.token_count,
+            m.parent_message_id,
+            m.client_message_id,
+            m.created_at
+        FROM tb_chat_message m
+        JOIN tb_chat_conversation c ON c.conversation_id = m.conversation_id
+        WHERE c.user_id = #{userId}
+        AND m.conversation_id = #{conversationId}
+        AND m.message_id > #{afterMessageId}
+        AND c.is_deleted = 0
+        ORDER BY m.message_id ASC
+        LIMIT #{limit}
     </select>
 
     <insert id="upsertSummary" parameterType="heyso.HeysoDiaryBackEnd.aichat.model.ChatConversationSummary">
