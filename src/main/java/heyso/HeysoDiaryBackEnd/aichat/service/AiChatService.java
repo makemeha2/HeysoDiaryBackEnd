@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.client.ChatClient.CallResponseSpec;
@@ -31,7 +30,7 @@ import heyso.HeysoDiaryBackEnd.aichat.dto.ChatMessageCreateResponse;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatMessageListResponse;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatMessageResponse;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatSummaryResponse;
-import heyso.HeysoDiaryBackEnd.aichat.dto.ChatSummaryUpsertRequest;
+import heyso.HeysoDiaryBackEnd.aichat.mapper.AiChatDtoMapper;
 import heyso.HeysoDiaryBackEnd.aichat.mapper.AiChatMapper;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatConversation;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatConversationSummary;
@@ -48,14 +47,17 @@ public class AiChatService {
     private final AiChatMapper aiChatMapper;
     private final OpenAiClient openAiClient;
     private final OpenAiProperties openAiProperties;
+    private final AiChatDtoMapper dtoMapper;
 
     private static final int SUMMARY_UPDATE_THRESHOLD = 10;
     private static final int SUMMARY_MAX_APPEND_MESSAGES = 10;
 
-    public AiChatService(AiChatMapper aiChatMapper, OpenAiClient openAiClient, OpenAiProperties openAiProperties) {
+    public AiChatService(AiChatMapper aiChatMapper, OpenAiClient openAiClient, OpenAiProperties openAiProperties,
+            AiChatDtoMapper dtoMapper) {
         this.aiChatMapper = aiChatMapper;
         this.openAiClient = openAiClient;
         this.openAiProperties = openAiProperties;
+        this.dtoMapper = dtoMapper;
     }
 
     // 채팅방 목록을 가져온다.
@@ -69,9 +71,7 @@ public class AiChatService {
                 request.getOffset(),
                 request.getSize());
 
-        List<ChatConversationListItem> items = conversations.stream()
-                .map(ChatConversationListItem::from)
-                .collect(Collectors.toList());
+        List<ChatConversationListItem> items = dtoMapper.toConversationListItems(conversations);
 
         return ChatConversationListResponse.of(items);
     }
@@ -81,11 +81,12 @@ public class AiChatService {
     public ChatConversationCreateResponse createConversation(ChatConversationCreateRequest request) {
         User user = SecurityUtils.getCurrentUserOrThrow();
 
-        ChatConversation conversation = new ChatConversation();
-        conversation.setUserId(user.getUserId());
-        conversation.setTitle(request.getTitle());
-        conversation.setModel(request.getModel());
-        conversation.setSystemPrompt(request.getSystemPrompt());
+        ChatConversation conversation = ChatConversation.builder()
+                .userId(user.getUserId())
+                .title(request.getTitle())
+                .model(request.getModel())
+                .systemPrompt(request.getSystemPrompt())
+                .build();
 
         aiChatMapper.insertConversation(conversation);
         return ChatConversationCreateResponse.of(conversation.getConversationId());
@@ -104,9 +105,7 @@ public class AiChatService {
         }
 
         List<ChatMessage> messages = aiChatMapper.selectMessages(conversationId, null, messageLimit);
-        List<ChatMessageResponse> messageResponses = messages.stream()
-                .map(ChatMessageResponse::from)
-                .collect(Collectors.toList());
+        List<ChatMessageResponse> messageResponses = dtoMapper.toMessageResponses(messages);
 
         return ChatConversationDetailResponse.of(conversation, messageResponses);
     }
@@ -158,8 +157,8 @@ public class AiChatService {
         }
 
         List<ChatMessage> messages = aiChatMapper.selectMessages(conversationId, afterMessageId, limit);
-        return ChatMessageListResponse
-                .of(messages.stream().map(ChatMessageResponse::from).collect(Collectors.toList()));
+
+        return ChatMessageListResponse.of(dtoMapper.toMessageResponses(messages));
     }
 
     /// 대화를 추가한다.
@@ -175,14 +174,11 @@ public class AiChatService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot add messages to this conversation");
         }
 
-        ChatMessage message = new ChatMessage();
-        message.setConversationId(conversationId);
-        message.setRole(request.getRole());
-        message.setContent(request.getContent());
-        message.setContentFormat(request.getContentFormat());
-        message.setTokenCount(request.getTokenCount());
-        message.setParentMessageId(request.getParentMessageId());
-        message.setClientMessageId(request.getClientMessageId());
+        ChatMessage message = ChatMessage.builder()
+                .conversationId(conversationId).role(request.getRole())
+                .content(request.getContent()).contentFormat(request.getContentFormat())
+                .tokenCount(request.getTokenCount()).parentMessageId(request.getParentMessageId())
+                .clientMessageId(request.getClientMessageId()).build();
 
         try {
             aiChatMapper.insertMessage(message);
@@ -209,38 +205,17 @@ public class AiChatService {
         ChatConversationSummary summary = aiChatMapper.selectSummaryByUser(user.getUserId(), conversationId);
         if (summary == null) {
             // Return an empty object for convenience
-            ChatConversationSummary empty = new ChatConversationSummary();
-            empty.setConversationId(conversationId);
-            empty.setSummary("");
-            empty.setSummaryVersion(1);
-            empty.setLastMessageId(null);
-            empty.setUpdatedAt(null);
-            return ChatSummaryResponse.from(empty);
+            ChatConversationSummary empty = ChatConversationSummary.builder()
+                    .conversationId(conversationId)
+                    .summary("")
+                    .summaryVersion(1)
+                    .lastMessageId(null)
+                    .updatedAt(null)
+                    .build();
+            return dtoMapper.toSummaryResponse(empty);
         }
 
-        return ChatSummaryResponse.from(summary);
-    }
-
-    /// 채팅방 대화내용의 Summary 를 갱신한다.
-    @Transactional
-    public void upsertSummary(Long conversationId, ChatSummaryUpsertRequest request) {
-        User user = SecurityUtils.getCurrentUserOrThrow();
-
-        ChatConversation conversation = aiChatMapper.selectConversationById(conversationId);
-        if (conversation == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found");
-        }
-        if (!conversation.getUserId().equals(user.getUserId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot access this conversation");
-        }
-
-        ChatConversationSummary summary = new ChatConversationSummary();
-        summary.setConversationId(conversationId);
-        summary.setSummary(request.getSummary());
-        summary.setSummaryVersion(request.getSummaryVersion());
-        summary.setLastMessageId(request.getLastMessageId());
-
-        aiChatMapper.upsertSummary(summary);
+        return dtoMapper.toSummaryResponse(summary);
     }
 
     /// OpenAI Chat봇의 응답을 가져온다.
@@ -257,13 +232,10 @@ public class AiChatService {
         }
 
         // 1) USER 메시지 저장
-        ChatMessage userMsg = new ChatMessage();
-        userMsg.setConversationId(conversationId);
-        userMsg.setRole("USER");
-        userMsg.setContent(request.getUserContent());
-        userMsg.setContentFormat("markdown");
-        userMsg.setParentMessageId(request.getParentMessageId());
-        userMsg.setClientMessageId(request.getUserClientMessageId());
+        ChatMessage userMsg = ChatMessage.builder()
+                .conversationId(conversationId).role("USER").content(request.getUserContent()).contentFormat("markdown")
+                .parentMessageId(request.getParentMessageId()).clientMessageId(request.getUserClientMessageId())
+                .build();
 
         try {
             aiChatMapper.insertMessage(userMsg);
@@ -339,29 +311,18 @@ public class AiChatService {
         }
 
         // 4) ASSISTANT 메시지 저장
-        ChatMessage assistantMsg = new ChatMessage();
-        assistantMsg.setConversationId(conversationId);
-        assistantMsg.setRole("ASSISTANT");
-        assistantMsg.setContent(assistantText);
-        assistantMsg.setContentFormat(
-                request.getAssistantContentFormat() == null ? "markdown" : request.getAssistantContentFormat());
-        // token_count는 우리 DB 컬럼이고, OpenAI usage와 일치하지 않을 수 있어 null 유지
-        assistantMsg.setParentMessageId(userMsg.getMessageId());
-        assistantMsg.setClientMessageId(null);
+        ChatMessage assistantMsg = ChatMessage.builder().conversationId(conversationId).role("ASSISTANT")
+                .content(assistantText)
+                .contentFormat(
+                        request.getAssistantContentFormat() == null ? "markdown" : request.getAssistantContentFormat())
+                .parentMessageId(userMsg.getMessageId()).clientMessageId(null).build();
 
         aiChatMapper.insertMessage(assistantMsg);
 
         // 5) usage log 저장(선택)
-        ChatUsageLog log = new ChatUsageLog();
-        log.setUserId(user.getUserId());
-        log.setConversationId(conversationId);
-        log.setRequestId(requestId);
-        log.setModel(model);
-        log.setPromptTokens(promptTokens);
-        log.setCompletionTokens(completionTokens);
-        log.setTotalTokens(totalTokens);
-        // costUsd는 요금표 기반 계산이 필요해서 일단 null (원하면 여기서 계산 로직 추가)
-        log.setCostUsd((BigDecimal) null);
+        ChatUsageLog log = ChatUsageLog.builder().userId(user.getUserId()).conversationId(conversationId)
+                .requestId(requestId).model(model).promptTokens(promptTokens).completionTokens(completionTokens)
+                .totalTokens(totalTokens).costUsd((BigDecimal) null).build();
 
         aiChatMapper.insertUsageLog(log);
 
@@ -438,11 +399,12 @@ public class AiChatService {
         // ChatResponse chatResponse = updatedSummarySpec.chatResponse();
         String updatedSummary = updatedSummarySpec.content();
 
-        ChatConversationSummary upsert = new ChatConversationSummary();
-        upsert.setConversationId(conversationId);
-        upsert.setSummary(updatedSummary.trim());
-        upsert.setSummaryVersion(summary == null ? 1 : (summary.getSummaryVersion() + 1));
-        upsert.setLastMessageId(newLastMessageId);
+        ChatConversationSummary upsert = ChatConversationSummary.builder()
+                .conversationId(conversationId)
+                .summary(updatedSummary.trim())
+                .summaryVersion(summary == null ? 1 : (summary.getSummaryVersion() + 1))
+                .lastMessageId(newLastMessageId)
+                .build();
 
         // ✅ (4) upsert 실행 (여기 오기 전에 이미 소유권 검증 완료)
         aiChatMapper.upsertSummary(upsert);

@@ -11,7 +11,6 @@ import heyso.HeysoDiaryBackEnd.aichat.dto.ChatConversationUpdateRequest;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatMessageCreateRequest;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatMessageCreateResponse;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatMessageListResponse;
-import heyso.HeysoDiaryBackEnd.aichat.dto.ChatSummaryUpsertRequest;
 import heyso.HeysoDiaryBackEnd.aichat.dto.ChatSummaryResponse;
 import heyso.HeysoDiaryBackEnd.aichat.service.AiChatService;
 import jakarta.validation.Valid;
@@ -100,13 +99,5 @@ public class AiChatController {
     @GetMapping("/conversations/{conversationId}/summary")
     public ResponseEntity<ChatSummaryResponse> getSummary(@PathVariable @Positive Long conversationId) {
         return ResponseEntity.ok(aiChatService.getSummary(conversationId));
-    }
-
-    @PostMapping("/conversations/{conversationId}/summary")
-    public ResponseEntity<Void> upsertSummary(
-            @PathVariable @Positive Long conversationId,
-            @Valid @RequestBody ChatSummaryUpsertRequest request) {
-        aiChatService.upsertSummary(conversationId, request);
-        return ResponseEntity.ok().build();
     }
 }

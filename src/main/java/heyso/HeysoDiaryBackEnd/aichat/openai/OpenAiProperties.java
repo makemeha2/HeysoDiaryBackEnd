@@ -26,7 +26,7 @@ public class OpenAiProperties {
     /**
      * assistant-reply 생성 시 최근 몇 개 메시지를 문맥으로 보낼지
      */
-    private int contextMessageLimit = 30;
+    private int contextMessageLimit = 10;
 
     /**
      * summary 가 있을 때 developer 메시지로 넣을 prefix

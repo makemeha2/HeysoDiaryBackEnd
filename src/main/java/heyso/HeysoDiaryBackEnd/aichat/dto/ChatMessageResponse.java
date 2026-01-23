@@ -1,6 +1,5 @@
 package heyso.HeysoDiaryBackEnd.aichat.dto;
 
-import heyso.HeysoDiaryBackEnd.aichat.model.ChatMessage;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
@@ -18,7 +17,7 @@ public class ChatMessageResponse {
     private final LocalDateTime createdAt;
 
     public ChatMessageResponse(Long messageId, Long conversationId, String role, String content, String contentFormat,
-                               Integer tokenCount, Long parentMessageId, String clientMessageId, LocalDateTime createdAt) {
+            Integer tokenCount, Long parentMessageId, String clientMessageId, LocalDateTime createdAt) {
         this.messageId = messageId;
         this.conversationId = conversationId;
         this.role = role;
@@ -28,19 +27,5 @@ public class ChatMessageResponse {
         this.parentMessageId = parentMessageId;
         this.clientMessageId = clientMessageId;
         this.createdAt = createdAt;
-    }
-
-    public static ChatMessageResponse from(ChatMessage m) {
-        return new ChatMessageResponse(
-                m.getMessageId(),
-                m.getConversationId(),
-                m.getRole(),
-                m.getContent(),
-                m.getContentFormat(),
-                m.getTokenCount(),
-                m.getParentMessageId(),
-                m.getClientMessageId(),
-                m.getCreatedAt()
-        );
     }
 }
