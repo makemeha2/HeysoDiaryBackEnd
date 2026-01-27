@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.diaryAi.mapper.DiaryAiMapper">
+
+    <!-- ============================== Result Maps =============================== -->
+
+    <resultMap id="DiaryAiRunResultMap" type="heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiRun">
+        <id column="run_id" property="runId"/>
+        <result column="diary_id" property="diaryId"/>
+        <result column="user_id" property="userId"/>
+        <result column="trigger_type" jdbcType="VARCHAR"
+                javaType="heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiTriggerType"
+                property="triggerType"/>
+        <result column="status" jdbcType="VARCHAR"
+                javaType="heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiRunStatus"
+                property="status"/>
+        <result column="model" property="model"/>
+        <result column="temperature" jdbcType="DECIMAL" property="temperature"/>
+        <result column="top_p" jdbcType="DECIMAL" property="topP"/>
+        <result column="max_output_tokens" property="maxOutputTokens"/>
+        <result column="request_id" property="requestId"/>
+        <result column="prompt_system" property="promptSystem"/>
+        <result column="prompt_user" property="promptUser"/>
+        <result column="prompt_hash" property="promptHash"/>
+        <result column="diary_updated_at_snapshot" jdbcType="TIMESTAMP" property="diaryUpdatedAtSnapshot"/>
+        <result column="prompt_tokens" property="promptTokens"/>
+        <result column="completion_tokens" property="completionTokens"/>
+        <result column="total_tokens" property="totalTokens"/>
+        <result column="cost_usd" jdbcType="DECIMAL" property="costUsd"/>
+        <result column="error_code" property="errorCode"/>
+        <result column="error_message" property="errorMessage"/>
+        <result column="started_at" jdbcType="TIMESTAMP" property="startedAt"/>
+        <result column="finished_at" jdbcType="TIMESTAMP" property="finishedAt"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <resultMap id="DiaryAiRunContextResultMap" type="heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiRunContext">
+        <id column="run_context_id" property="runContextId"/>
+        <result column="run_id" property="runId"/>
+        <result column="source_diary_id" property="sourceDiaryId"/>
+        <result column="source_type" jdbcType="VARCHAR"
+                javaType="heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiSourceType"
+                property="sourceType"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="score" jdbcType="DECIMAL" property="score"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+    </resultMap>
+
+    <resultMap id="DiaryAiCommentResultMap" type="heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiComment">
+        <id column="ai_comment_id" property="aiCommentId"/>
+        <result column="diary_id" property="diaryId"/>
+        <result column="user_id" property="userId"/>
+        <result column="run_id" property="runId"/>
+        <result column="content_md" property="contentMd"/>
+        <result column="is_pinned" jdbcType="TINYINT" property="isPinned"/>
+        <result column="is_deleted" jdbcType="TINYINT" property="isDeleted"/>
+        <result column="deleted_at" jdbcType="TIMESTAMP" property="deletedAt"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <resultMap id="DiaryAiFeedbackResultMap" type="heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiFeedback">
+        <id column="feedback_id" property="feedbackId"/>
+        <result column="ai_comment_id" property="aiCommentId"/>
+        <result column="user_id" property="userId"/>
+        <result column="feedback_type" jdbcType="VARCHAR"
+                javaType="heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiFeedbackType"
+                property="feedbackType"/>
+        <result column="feedback_reason" property="feedbackReason"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+    </resultMap>
+
+    <!-- ============================== tb_diary_ai_run =========================== -->
+
+    <insert id="insertDiaryAiRun" parameterType="heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiRun"
+            useGeneratedKeys="true" keyProperty="runId">
+        INSERT INTO tb_diary_ai_run (
+            diary_id,
+            user_id,
+            trigger_type,
+            status,
+            model,
+            temperature,
+            top_p,
+            max_output_tokens,
+            request_id,
+            prompt_system,
+            prompt_user,
+            prompt_hash,
+            diary_updated_at_snapshot,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            cost_usd,
+            error_code,
+            error_message,
+            started_at,
+            finished_at,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{diaryId},
+            #{userId},
+            #{triggerType},
+            'RUNNING',
+            #{model},
+            #{temperature},
+            #{topP},
+            #{maxOutputTokens},
+            #{requestId},
+            #{promptSystem},
+            #{promptUser},
+            #{promptHash},
+            #{diaryUpdatedAtSnapshot},
+            0,
+            0,
+            0,
+            #{costUsd},
+            #{errorCode},
+            #{errorMessage},
+            NOW(),
+            #{finishedAt},
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <update id="updateDiaryAiRunSuccess">
+        UPDATE tb_diary_ai_run
+        SET
+            status = 'SUCCESS',
+            request_id = #{requestId},
+            prompt_tokens = #{promptTokens},
+            completion_tokens = #{completionTokens},
+            total_tokens = #{totalTokens},
+            cost_usd = #{costUsd},
+            finished_at = NOW(),
+            updated_at = NOW()
+        WHERE run_id = #{runId}
+    </update>
+
+    <update id="updateDiaryAiRunError">
+        UPDATE tb_diary_ai_run
+        SET
+            status = 'ERROR',
+            error_code = #{errorCode},
+            error_message = #{errorMessage},
+            finished_at = NOW(),
+            updated_at = NOW()
+        WHERE run_id = #{runId}
+    </update>
+
+    <select id="selectDiaryAiRunById" resultMap="DiaryAiRunResultMap">
+        SELECT
+            run_id,
+            diary_id,
+            user_id,
+            trigger_type,
+            status,
+            model,
+            temperature,
+            top_p,
+            max_output_tokens,
+            request_id,
+            prompt_system,
+            prompt_user,
+            prompt_hash,
+            diary_updated_at_snapshot,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            cost_usd,
+            error_code,
+            error_message,
+            started_at,
+            finished_at,
+            created_at,
+            updated_at
+        FROM tb_diary_ai_run
+        WHERE run_id = #{runId}
+    </select>
+
+    <select id="selectLatestDiaryAiRunByDiaryId" resultMap="DiaryAiRunResultMap">
+        SELECT
+            run_id,
+            diary_id,
+            user_id,
+            trigger_type,
+            status,
+            model,
+            temperature,
+            top_p,
+            max_output_tokens,
+            request_id,
+            prompt_system,
+            prompt_user,
+            prompt_hash,
+            diary_updated_at_snapshot,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            cost_usd,
+            error_code,
+            error_message,
+            started_at,
+            finished_at,
+            created_at,
+            updated_at
+        FROM tb_diary_ai_run
+        WHERE diary_id = #{diaryId}
+          AND user_id = #{userId}
+        ORDER BY created_at DESC, run_id DESC
+        LIMIT 1
+    </select>
+
+    <!-- ========================== tb_diary_ai_run_context ======================= -->
+
+    <insert id="insertDiaryAiRunContextList">
+        INSERT INTO tb_diary_ai_run_context (
+            run_id,
+            source_diary_id,
+            source_type,
+            sort_order,
+            score,
+            created_at
+        )
+        VALUES
+        <foreach collection="contexts" item="ctx" separator=",">
+            (
+                #{runId},
+                #{ctx.sourceDiaryId},
+                #{ctx.sourceType},
+                #{ctx.sortOrder},
+                #{ctx.score},
+                NOW()
+            )
+        </foreach>
+    </insert>
+
+    <select id="selectDiaryAiRunContexts" resultMap="DiaryAiRunContextResultMap">
+        SELECT
+            run_context_id,
+            run_id,
+            source_diary_id,
+            source_type,
+            sort_order,
+            score,
+            created_at
+        FROM tb_diary_ai_run_context
+        WHERE run_id = #{runId}
+        ORDER BY sort_order ASC, run_context_id ASC
+    </select>
+
+    <!-- ============================= tb_diary_ai_comment ======================== -->
+
+    <insert id="insertDiaryAiComment" parameterType="heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiComment"
+            useGeneratedKeys="true" keyProperty="aiCommentId">
+        INSERT INTO tb_diary_ai_comment (
+            diary_id,
+            user_id,
+            run_id,
+            content_md,
+            is_pinned,
+            is_deleted,
+            deleted_at,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{diaryId},
+            #{userId},
+            #{runId},
+            #{contentMd},
+            0,
+            0,
+            #{deletedAt},
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <select id="selectAiCommentById" resultMap="DiaryAiCommentResultMap">
+        SELECT
+            ai_comment_id,
+            diary_id,
+            user_id,
+            run_id,
+            content_md,
+            is_pinned,
+            is_deleted,
+            deleted_at,
+            created_at,
+            updated_at
+        FROM tb_diary_ai_comment
+        WHERE ai_comment_id = #{aiCommentId}
+    </select>
+
+    <select id="selectAiCommentsByDiaryId" resultMap="DiaryAiCommentResultMap">
+        SELECT
+            ai_comment_id,
+            diary_id,
+            user_id,
+            run_id,
+            content_md,
+            is_pinned,
+            is_deleted,
+            deleted_at,
+            created_at,
+            updated_at
+        FROM tb_diary_ai_comment
+        WHERE diary_id = #{diaryId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+        ORDER BY created_at DESC, ai_comment_id DESC
+        LIMIT #{limit}
+    </select>
+
+    <update id="updatePinAllOff">
+        UPDATE tb_diary_ai_comment
+        SET
+            is_pinned = 0,
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+    </update>
+
+    <update id="updatePinOn">
+        UPDATE tb_diary_ai_comment
+        SET
+            is_pinned = 1,
+            updated_at = NOW()
+        WHERE ai_comment_id = #{aiCommentId}
+          AND user_id = #{userId}
+          AND is_deleted = 0
+    </update>
+
+    <!-- ============================= tb_diary_ai_feedback ======================= -->
+
+    <insert id="insertDiaryAiFeedback" parameterType="heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiFeedback">
+        INSERT INTO tb_diary_ai_feedback (
+            ai_comment_id,
+            user_id,
+            feedback_type,
+            feedback_reason,
+            created_at
+        )
+        VALUES (
+            #{aiCommentId},
+            #{userId},
+            #{feedbackType},
+            #{feedbackReason},
+            NOW()
+        )
+    </insert>
+
+    <select id="selectFeedbackByCommentAndUser" resultMap="DiaryAiFeedbackResultMap">
+        SELECT
+            feedback_id,
+            ai_comment_id,
+            user_id,
+            feedback_type,
+            feedback_reason,
+            created_at
+        FROM tb_diary_ai_feedback
+        WHERE ai_comment_id = #{aiCommentId}
+          AND user_id = #{userId}
+    </select>
+</mapper>

@@ -45,4 +45,15 @@ public interface DiaryMapper {
     List<DiaryTag> selectDiaryTagsByDiaryId(@Param("diaryId") Long diaryId);
 
     List<DiaryTag> selectDiaryTags(@Param("diaryIds") List<Long> diaryIds);
+
+    /* --------------------------- AI 컨텍스트 조회용 ---------------------------- */
+
+    List<DiarySummary> selectRecentDiaries(@Param("userId") Long userId,
+                                           @Param("excludeDiaryId") Long excludeDiaryId,
+                                           @Param("limit") Integer limit);
+
+    List<DiarySummary> selectDiariesByTags(@Param("userId") Long userId,
+                                           @Param("excludeDiaryId") Long excludeDiaryId,
+                                           @Param("tagNames") List<String> tagNames,
+                                           @Param("limit") Integer limit);
 }

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Component
 @RequiredArgsConstructor
@@ -27,6 +28,17 @@ public class OpenAiClient {
      * @return assistant 텍스트
      */
     public CallResponseSpec createResponseSpec(String modelName, List<RoleMessage> messages) {
+        return createResponseSpec(modelName, messages, null, null, null);
+    }
+
+    /**
+     * 옵션(temperature, topP, maxTokens)을 포함한 호출
+     */
+    public CallResponseSpec createResponseSpec(String modelName,
+                                               List<RoleMessage> messages,
+                                               BigDecimal temperature,
+                                               BigDecimal topP,
+                                               Integer maxOutputTokens) {
         List<Message> springMessages = new ArrayList<>();
 
         for (RoleMessage m : messages) {
@@ -44,9 +56,21 @@ public class OpenAiClient {
             }
         }
 
+        ChatOptions.Builder optionsBuilder = ChatOptions.builder().model(modelName);
+
+        if (temperature != null) {
+            optionsBuilder.temperature(temperature.doubleValue());
+        }
+        if (topP != null) {
+            optionsBuilder.topP(topP.doubleValue());
+        }
+        if (maxOutputTokens != null) {
+            optionsBuilder.maxTokens(maxOutputTokens);
+        }
+
         CallResponseSpec response = chatClient.prompt()
                 .messages(springMessages)
-                .options(ChatOptions.builder().model(modelName).build())
+                .options(optionsBuilder.build())
                 .call();
 
         // Spring AI가 최종 assistant content를 문자열로 제공

@@ -175,4 +175,53 @@
             #{id}
         </foreach>
     </select>
+
+    <!-- ====================== AI 컨텍스트 조회용 ====================== -->
+
+    <select id="selectRecentDiaries" resultMap="DiarySummaryResultMap">
+        SELECT
+            d.diary_id,
+            d.user_id,
+            u.nickname AS author_nickname,
+            d.title,
+            d.content_md,
+            d.diary_date,
+            d.created_at,
+            d.updated_at
+        FROM tb_diary d
+        INNER JOIN tb_user u ON u.user_id = d.user_id
+        WHERE d.is_deleted = 0
+          AND d.user_id = #{userId}
+          AND d.diary_id != #{excludeDiaryId}
+        ORDER BY d.diary_date DESC, d.created_at DESC, d.diary_id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectDiariesByTags" resultMap="DiarySummaryResultMap">
+        SELECT
+            d.diary_id,
+            d.user_id,
+            u.nickname AS author_nickname,
+            d.title,
+            d.content_md,
+            d.diary_date,
+            d.created_at,
+            d.updated_at
+        FROM tb_diary d
+        INNER JOIN tb_user u ON u.user_id = d.user_id
+        INNER JOIN (
+            SELECT DISTINCT dt.diary_id
+            FROM tb_diary_tag dt
+            INNER JOIN tb_tag t ON t.tag_id = dt.tag_id
+            WHERE t.tag_name IN
+            <foreach collection="tagNames" item="tag" open="(" separator="," close=")">
+                #{tag}
+            </foreach>
+        ) tag_diaries ON tag_diaries.diary_id = d.diary_id
+        WHERE d.is_deleted = 0
+          AND d.user_id = #{userId}
+          AND d.diary_id != #{excludeDiaryId}
+        ORDER BY d.diary_date DESC, d.created_at DESC, d.diary_id DESC
+        LIMIT #{limit}
+    </select>
 </mapper>
