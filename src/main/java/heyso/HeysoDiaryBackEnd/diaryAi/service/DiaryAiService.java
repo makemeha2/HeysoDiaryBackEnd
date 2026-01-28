@@ -1,4 +1,4 @@
-package heyso.HeysoDiaryBackEnd.diary.ai.service;
+package heyso.HeysoDiaryBackEnd.diaryAi.service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -37,8 +37,10 @@ import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiRunStatus;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiSourceType;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiTriggerType;
 import heyso.HeysoDiaryBackEnd.user.model.User;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class DiaryAiService {
 
     private static final int DEFAULT_RECENT_LIMIT = 10;
@@ -52,29 +54,28 @@ public class DiaryAiService {
 
     private static final String DEFAULT_MODEL = "gpt-4o-mini";
 
+    // private static final String MENTOR_SYSTEM_PROMPT = """
+    // 너는 사용자의 일기를 읽고 따뜻하고 성실한 멘토처럼 댓글을 남기는 AI다.
+    // - 공감 → 관찰 → 제안 순서로, 짧지만 밀도 있게 작성하라.
+    // - 사실을 지어내지 말고, 주어진 정보에 근거해라.
+    // - 위험하거나 민감한 조언(의학/법률/투자)은 피하고, 필요 시 전문가 상담을 권유하라.
+    // - 비난하거나 단정하지 말고, 선택지를 제시하는 어조를 유지하라.
+    // - 출력은 Markdown으로 작성하라.
+    // """;
     private static final String MENTOR_SYSTEM_PROMPT = """
             너는 사용자의 일기를 읽고 따뜻하고 성실한 멘토처럼 댓글을 남기는 AI다.
             - 공감 → 관찰 → 제안 순서로, 짧지만 밀도 있게 작성하라.
             - 사실을 지어내지 말고, 주어진 정보에 근거해라.
-            - 위험하거나 민감한 조언(의학/법률/투자)은 피하고, 필요 시 전문가 상담을 권유하라.
             - 비난하거나 단정하지 말고, 선택지를 제시하는 어조를 유지하라.
-            - 출력은 Markdown으로 작성하라.
             """;
 
     private final DiaryMapper diaryMapper;
     private final DiaryAiMapper diaryAiMapper;
     private final OpenAiClient openAiClient;
 
-    public DiaryAiService(DiaryMapper diaryMapper,
-                          DiaryAiMapper diaryAiMapper,
-                          OpenAiClient openAiClient) {
-        this.diaryMapper = diaryMapper;
-        this.diaryAiMapper = diaryAiMapper;
-        this.openAiClient = openAiClient;
-    }
-
     @Transactional
     public DiaryAiCommentCreateResponse createAiComment(Long diaryId, DiaryAiCommentCreateRequest request) {
+        // 인증 사용자 확인 및 일기 접근 권한 검증
         User user = SecurityUtils.getCurrentUserOrThrow();
 
         DiarySummary diary = diaryMapper.selectDiaryById(diaryId);
@@ -85,10 +86,12 @@ public class DiaryAiService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot access this diary");
         }
 
+        // 컨텍스트 구성 파라미터 정규화
         int recentLimit = normalizeLimit(request.getRecentLimit(), DEFAULT_RECENT_LIMIT);
         int tagLimit = normalizeLimit(request.getTagLimit(), DEFAULT_TAG_LIMIT);
         int totalContextLimit = DEFAULT_TOTAL_CONTEXT_LIMIT;
 
+        // 최근 일기 + 태그 연관 일기에서 컨텍스트 후보 수집
         List<String> tagNames = diaryMapper.selectTagNamesByDiaryId(diaryId);
 
         List<DiarySummary> recentDiaries = diaryMapper.selectRecentDiaries(user.getUserId(), diaryId, recentLimit);
@@ -98,6 +101,7 @@ public class DiaryAiService {
 
         List<DiaryAiRunContext> contexts = buildContexts(recentDiaries, tagDiaries, totalContextLimit);
 
+        // 시스템/유저 프롬프트 생성 및 해시 계산
         String contextBlock = buildContextBlock(contexts, recentDiaries, tagDiaries);
         String promptSystem = buildSystemPrompt(contextBlock);
         String promptUser = buildUserPrompt(diary, request);
@@ -106,6 +110,7 @@ public class DiaryAiService {
 
         String model = StringUtils.isBlank(request.getModel()) ? DEFAULT_MODEL : request.getModel().trim();
 
+        // 실행 기록 먼저 저장 (실패/성공 모두 추적)
         DiaryAiRun run = DiaryAiRun.builder()
                 .diaryId(diaryId)
                 .userId(user.getUserId())
@@ -128,6 +133,7 @@ public class DiaryAiService {
         }
 
         try {
+            // 모델 호출 후 결과를 댓글로 저장
             AiCallResult aiResult = callMentorModel(model, promptSystem, promptUser, request);
 
             DiaryAiComment comment = DiaryAiComment.builder()
@@ -141,6 +147,7 @@ public class DiaryAiService {
 
             diaryAiMapper.insertDiaryAiComment(comment);
 
+            // 실행 결과(토큰/요청ID) 업데이트
             diaryAiMapper.updateDiaryAiRunSuccess(
                     run.getRunId(),
                     aiResult.requestId(),
@@ -155,15 +162,18 @@ public class DiaryAiService {
                     comment.getContentMd(),
                     comment.getCreatedAt());
         } catch (ResponseStatusException e) {
+            // 모델 호출 실패 기록
             diaryAiMapper.updateDiaryAiRunError(run.getRunId(), "LLM_ERROR", safeErrorMessage(e.getReason()));
             throw e;
         } catch (Exception e) {
+            // 예기치 못한 오류 기록
             diaryAiMapper.updateDiaryAiRunError(run.getRunId(), "UNEXPECTED_ERROR", safeErrorMessage(e.getMessage()));
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI comment generation failed");
         }
     }
 
     public List<DiaryAiCommentListItemResponse> getAiComments(Long diaryId, Integer limit) {
+        // 접근 권한 확인 후 댓글 목록 조회
         User user = SecurityUtils.getCurrentUserOrThrow();
 
         DiarySummary diary = diaryMapper.selectDiaryById(diaryId);
@@ -179,6 +189,7 @@ public class DiaryAiService {
         List<DiaryAiComment> comments = diaryAiMapper.selectAiCommentsByDiaryId(diaryId, user.getUserId(),
                 normalizedLimit);
 
+        // 응답 DTO로 변환
         List<DiaryAiCommentListItemResponse> responses = new ArrayList<>();
         for (DiaryAiComment comment : comments) {
             responses.add(DiaryAiCommentListItemResponse.of(
@@ -194,12 +205,14 @@ public class DiaryAiService {
 
     @Transactional
     public void createFeedback(Long aiCommentId, DiaryAiFeedbackCreateRequest request) {
+        // 요청 본문과 경로의 ID 일치 여부 검증
         User user = SecurityUtils.getCurrentUserOrThrow();
 
         if (request.getAiCommentId() != null && !aiCommentId.equals(request.getAiCommentId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "aiCommentId mismatch");
         }
 
+        // 댓글 존재/권한 검증
         DiaryAiComment comment = diaryAiMapper.selectAiCommentById(aiCommentId);
         if (comment == null || Boolean.TRUE.equals(comment.getIsDeleted())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "AI comment not found");
@@ -208,6 +221,7 @@ public class DiaryAiService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot give feedback on this comment");
         }
 
+        // 피드백 저장 (중복은 예외 처리)
         DiaryAiFeedback feedback = DiaryAiFeedback.builder()
                 .aiCommentId(aiCommentId)
                 .userId(user.getUserId())
@@ -223,15 +237,17 @@ public class DiaryAiService {
     }
 
     private AiCallResult callMentorModel(String model,
-                                         String promptSystem,
-                                         String promptUser,
-                                         DiaryAiCommentCreateRequest request) {
+            String promptSystem,
+            String promptUser,
+            DiaryAiCommentCreateRequest request) {
+        // 개발자/사용자 메시지로 프롬프트 구성
         List<RoleMessage> messages = new ArrayList<>();
         messages.add(new RoleMessage("developer", promptSystem));
         messages.add(new RoleMessage("user", promptUser));
 
         CallResponseSpec responseSpec;
         try {
+            // OpenAI 호출 준비
             responseSpec = openAiClient.createResponseSpec(
                     model,
                     messages,
@@ -245,6 +261,7 @@ public class DiaryAiService {
         ChatResponse chatResponse = responseSpec.chatResponse();
         String content = responseSpec.content();
 
+        // 응답 본문 검증
         if (StringUtils.isBlank(content)) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI returned empty assistant content");
         }
@@ -254,6 +271,7 @@ public class DiaryAiService {
         Integer completionTokens = 0;
         Integer totalTokens = 0;
 
+        // 사용량(토큰) 추출
         if (chatResponse != null && chatResponse.getMetadata() != null) {
             String metadataId = chatResponse.getMetadata().getId();
             if (StringUtils.isNotBlank(metadataId)) {
@@ -272,8 +290,9 @@ public class DiaryAiService {
     }
 
     private List<DiaryAiRunContext> buildContexts(List<DiarySummary> recentDiaries,
-                                                  List<DiarySummary> tagDiaries,
-                                                  int totalLimit) {
+            List<DiarySummary> tagDiaries,
+            int totalLimit) {
+        // 최근/태그 컨텍스트를 중복 없이 정렬된 맵으로 합친다
         Map<Long, DiaryAiSourceType> orderedSources = new LinkedHashMap<>();
 
         for (DiarySummary diary : recentDiaries) {
@@ -286,6 +305,7 @@ public class DiaryAiService {
         List<DiaryAiRunContext> contexts = new ArrayList<>();
         int sortOrder = 1;
 
+        // totalLimit까지 컨텍스트 엔트리 생성
         for (Map.Entry<Long, DiaryAiSourceType> entry : orderedSources.entrySet()) {
             if (contexts.size() >= totalLimit) {
                 break;
@@ -301,12 +321,14 @@ public class DiaryAiService {
     }
 
     private String buildContextBlock(List<DiaryAiRunContext> contexts,
-                                     List<DiarySummary> recentDiaries,
-                                     List<DiarySummary> tagDiaries) {
+            List<DiarySummary> recentDiaries,
+            List<DiarySummary> tagDiaries) {
+        // 컨텍스트가 없으면 짧은 안내 문구 반환
         if (contexts.isEmpty()) {
             return "참고할 과거 일기 컨텍스트는 비어 있다.";
         }
 
+        // diaryId -> DiarySummary 매핑
         Map<Long, DiarySummary> diaryMap = new LinkedHashMap<>();
         for (DiarySummary diary : recentDiaries) {
             diaryMap.putIfAbsent(diary.getDiaryId(), diary);
@@ -319,6 +341,7 @@ public class DiaryAiService {
         sb.append("아래는 과거 일기에서 발췌한 짧은 컨텍스트다.\n");
         sb.append("- 원문을 그대로 길게 인용하지 말고, 맥락 파악에만 사용하라.\n\n");
 
+        // 길이 제한을 넘기지 않도록 컨텍스트 블록 누적
         for (DiaryAiRunContext ctx : contexts) {
             DiarySummary diary = diaryMap.get(ctx.getSourceDiaryId());
             if (diary == null) {
@@ -336,10 +359,12 @@ public class DiaryAiService {
     }
 
     private String buildSystemPrompt(String contextBlock) {
+        // 시스템 프롬프트 + 컨텍스트 블록 결합
         return MENTOR_SYSTEM_PROMPT + "\n\n[과거 일기 컨텍스트]\n" + contextBlock;
     }
 
     private String buildUserPrompt(DiarySummary diary, DiaryAiCommentCreateRequest request) {
+        // 오늘 일기 내용을 요약해서 유저 프롬프트로 구성
         String diaryDate = diary.getDiaryDate() == null ? "" : diary.getDiaryDate().toString();
         String title = StringUtils.defaultString(diary.getTitle());
         String contentSnippet = limitDiaryContent(diary.getContentMd(), TODAY_DIARY_SNIPPET_MAX);
@@ -357,6 +382,7 @@ public class DiaryAiService {
     }
 
     private String formatContextDiary(DiarySummary diary, int sortOrder, DiaryAiSourceType sourceType) {
+        // 컨텍스트 한 건을 포맷팅
         LocalDate date = diary.getDiaryDate();
         String dateText = date == null ? "" : date.toString();
         String title = StringUtils.defaultString(diary.getTitle());
@@ -370,6 +396,7 @@ public class DiaryAiService {
     }
 
     private String limitDiaryContent(String contentMd, int maxChars) {
+        // 공백 정규화 후 길이 제한
         if (StringUtils.isBlank(contentMd)) {
             return "";
         }
@@ -382,6 +409,7 @@ public class DiaryAiService {
     }
 
     private int normalizeLimit(Integer value, int defaultValue) {
+        // 음수/0/널 처리
         if (value == null || value <= 0) {
             return defaultValue;
         }
@@ -393,6 +421,7 @@ public class DiaryAiService {
     }
 
     private String sha256(String input) {
+        // 프롬프트 해시 생성
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
@@ -408,10 +437,12 @@ public class DiaryAiService {
     }
 
     private String safeErrorMessage(String message) {
+        // 오류 메시지 길이 제한
         return trimToEmpty(message, 2_000);
     }
 
     private String trimToEmpty(String value, int maxLen) {
+        // trim + 최대 길이 제한
         if (value == null) {
             return null;
         }
@@ -423,9 +454,9 @@ public class DiaryAiService {
     }
 
     private record AiCallResult(String content,
-                                String requestId,
-                                Integer promptTokens,
-                                Integer completionTokens,
-                                Integer totalTokens) {
+            String requestId,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens) {
     }
 }

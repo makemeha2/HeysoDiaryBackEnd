@@ -1,4 +1,4 @@
-package heyso.HeysoDiaryBackEnd.diary.ai.controller;
+package heyso.HeysoDiaryBackEnd.diaryAi.controller;
 
 import java.util.List;
 
@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import heyso.HeysoDiaryBackEnd.diary.ai.service.DiaryAiService;
+import heyso.HeysoDiaryBackEnd.diaryAi.service.DiaryAiService;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiCommentCreateRequest;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiCommentCreateResponse;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiCommentListItemResponse;
@@ -33,23 +33,22 @@ public class DiaryAiController {
 
     @PostMapping("/{diaryId}/ai-comment")
     public ResponseEntity<DiaryAiCommentCreateResponse> createAiComment(@PathVariable Long diaryId,
-                                                                        @Valid @RequestBody DiaryAiCommentCreateRequest request) {
+            @Valid @RequestBody DiaryAiCommentCreateRequest request) {
         DiaryAiCommentCreateResponse response = diaryAiService.createAiComment(diaryId, request);
         return ResponseEntity.status(201).body(response);
     }
 
     @GetMapping("/{diaryId}/ai-comments")
     public ResponseEntity<List<DiaryAiCommentListItemResponse>> getAiComments(@PathVariable Long diaryId,
-                                                                              @RequestParam(name = "limit", defaultValue = "10") @Min(1) Integer limit) {
+            @RequestParam(name = "limit", defaultValue = "10") @Min(1) Integer limit) {
         List<DiaryAiCommentListItemResponse> responses = diaryAiService.getAiComments(diaryId, limit);
         return ResponseEntity.ok(responses);
     }
 
     @PostMapping("/ai-comments/{aiCommentId}/feedback")
     public ResponseEntity<Void> createFeedback(@PathVariable Long aiCommentId,
-                                               @Valid @RequestBody DiaryAiFeedbackCreateRequest request) {
+            @Valid @RequestBody DiaryAiFeedbackCreateRequest request) {
         diaryAiService.createFeedback(aiCommentId, request);
         return ResponseEntity.ok().build();
     }
 }
-
