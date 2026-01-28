@@ -72,4 +72,10 @@ public class DiaryController {
         diaryService.editDiary(diaryId, request);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/{diaryId}/delete")
+    public ResponseEntity<Void> deleteDiary(@PathVariable Long diaryId) {
+        diaryService.deleteDiary(diaryId);
+        return ResponseEntity.ok().build();
+    }
 }

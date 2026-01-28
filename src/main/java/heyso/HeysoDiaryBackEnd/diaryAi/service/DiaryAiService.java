@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.client.ChatClient.CallResponseSpec;
@@ -67,11 +68,24 @@ public class DiaryAiService {
             - 공감 → 관찰 → 제안 순서로, 짧지만 밀도 있게 작성하라.
             - 사실을 지어내지 말고, 주어진 정보에 근거해라.
             - 비난하거나 단정하지 말고, 선택지를 제시하는 어조를 유지하라.
+            - 너무 뻔한 말은 아니였으면 좋겠다.
+            - [과거 일기 컨텍스트]에서 유의미한 연관내용이 있으면 그 맥락도 같이 연관하여 작성하라.
             """;
 
     private final DiaryMapper diaryMapper;
     private final DiaryAiMapper diaryAiMapper;
     private final OpenAiClient openAiClient;
+
+    @Transactional
+    public DiaryAiCommentCreateResponse createAiComment(Long diaryId) {
+
+        DiaryAiCommentCreateRequest request = new DiaryAiCommentCreateRequest();
+        request.setRecentLimit(DEFAULT_RECENT_LIMIT);
+        request.setTagLimit(DEFAULT_TAG_LIMIT);
+        request.setModel(DEFAULT_MODEL);
+
+        return createAiComment(diaryId, request);
+    }
 
     @Transactional
     public DiaryAiCommentCreateResponse createAiComment(Long diaryId, DiaryAiCommentCreateRequest request) {
@@ -87,8 +101,8 @@ public class DiaryAiService {
         }
 
         // 컨텍스트 구성 파라미터 정규화
-        int recentLimit = normalizeLimit(request.getRecentLimit(), DEFAULT_RECENT_LIMIT);
-        int tagLimit = normalizeLimit(request.getTagLimit(), DEFAULT_TAG_LIMIT);
+        int recentLimit = Objects.requireNonNullElse(request.getRecentLimit(), DEFAULT_RECENT_LIMIT);
+        int tagLimit = Objects.requireNonNullElse(request.getTagLimit(), DEFAULT_TAG_LIMIT);
         int totalContextLimit = DEFAULT_TOTAL_CONTEXT_LIMIT;
 
         // 최근 일기 + 태그 연관 일기에서 컨텍스트 후보 수집
@@ -184,7 +198,7 @@ public class DiaryAiService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot access this diary");
         }
 
-        int normalizedLimit = normalizeLimit(limit, DEFAULT_COMMENT_LIST_LIMIT);
+        int normalizedLimit = Objects.requireNonNullElse(limit, DEFAULT_COMMENT_LIST_LIMIT);
 
         List<DiaryAiComment> comments = diaryAiMapper.selectAiCommentsByDiaryId(diaryId, user.getUserId(),
                 normalizedLimit);
@@ -280,9 +294,9 @@ public class DiaryAiService {
 
             Usage usage = chatResponse.getMetadata().getUsage();
             if (usage != null && !(usage instanceof EmptyUsage)) {
-                promptTokens = defaultZero(usage.getPromptTokens());
-                completionTokens = defaultZero(usage.getCompletionTokens());
-                totalTokens = defaultZero(usage.getTotalTokens());
+                promptTokens = Objects.requireNonNullElse(usage.getPromptTokens(), 0);
+                completionTokens = Objects.requireNonNullElse(usage.getCompletionTokens(), 0);
+                totalTokens = Objects.requireNonNullElse(usage.getTotalTokens(), 0);
             }
         }
 
@@ -295,11 +309,11 @@ public class DiaryAiService {
         // 최근/태그 컨텍스트를 중복 없이 정렬된 맵으로 합친다
         Map<Long, DiaryAiSourceType> orderedSources = new LinkedHashMap<>();
 
-        for (DiarySummary diary : recentDiaries) {
-            orderedSources.putIfAbsent(diary.getDiaryId(), DiaryAiSourceType.RECENT);
-        }
         for (DiarySummary diary : tagDiaries) {
             orderedSources.putIfAbsent(diary.getDiaryId(), DiaryAiSourceType.TAG);
+        }
+        for (DiarySummary diary : recentDiaries) {
+            orderedSources.putIfAbsent(diary.getDiaryId(), DiaryAiSourceType.RECENT);
         }
 
         List<DiaryAiRunContext> contexts = new ArrayList<>();
@@ -376,8 +390,7 @@ public class DiaryAiService {
                 내용:
                 %s
 
-                위 일기를 읽고, 한국어로 따뜻하고 구체적인 멘토 댓글을 작성해줘.
-                너무 길지 않게, 하지만 실질적인 도움을 줄 것.
+                위 일기를 읽고, 너무 길지 않게 한국어로 따뜻하고 구체적인 멘토 댓글을 작성해줘.
                 """.formatted(diaryDate, title, contentSnippet);
     }
 
@@ -406,18 +419,6 @@ public class DiaryAiService {
             return normalized;
         }
         return normalized.substring(0, maxChars) + "...";
-    }
-
-    private int normalizeLimit(Integer value, int defaultValue) {
-        // 음수/0/널 처리
-        if (value == null || value <= 0) {
-            return defaultValue;
-        }
-        return value;
-    }
-
-    private Integer defaultZero(Integer value) {
-        return value == null ? 0 : value;
     }
 
     private String sha256(String input) {

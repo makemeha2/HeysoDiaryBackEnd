@@ -31,10 +31,18 @@ public class DiaryAiController {
         this.diaryAiService = diaryAiService;
     }
 
+    // @PostMapping("/{diaryId}/ai-comment")
+    // public ResponseEntity<DiaryAiCommentCreateResponse>
+    // createAiComment(@PathVariable Long diaryId,
+    // @Valid @RequestBody DiaryAiCommentCreateRequest request) {
+    // DiaryAiCommentCreateResponse response =
+    // diaryAiService.createAiComment(diaryId, request);
+    // return ResponseEntity.status(201).body(response);
+    // }
+
     @PostMapping("/{diaryId}/ai-comment")
-    public ResponseEntity<DiaryAiCommentCreateResponse> createAiComment(@PathVariable Long diaryId,
-            @Valid @RequestBody DiaryAiCommentCreateRequest request) {
-        DiaryAiCommentCreateResponse response = diaryAiService.createAiComment(diaryId, request);
+    public ResponseEntity<DiaryAiCommentCreateResponse> createAiComment(@PathVariable Long diaryId) {
+        DiaryAiCommentCreateResponse response = diaryAiService.createAiComment(diaryId);
         return ResponseEntity.status(201).body(response);
     }
 

@@ -112,6 +112,14 @@
           AND is_deleted = 0
     </update>
 
+    <update id="deleteDiary">
+        UPDATE tb_diary
+        SET
+            is_deleted = 1,
+            deleted_at = NOW()
+        WHERE diary_id = #{diaryId}
+    </update>
+
     <delete id="deleteDiaryTags">
         DELETE FROM tb_diary_tag
         WHERE diary_id = #{diaryId}

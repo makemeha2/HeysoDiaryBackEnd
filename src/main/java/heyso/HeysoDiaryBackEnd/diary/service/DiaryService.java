@@ -121,6 +121,22 @@ public class DiaryService {
         upsertDiaryTags(diaryId, request.getTags());
     }
 
+    @Transactional
+    public void deleteDiary(Long diaryId) {
+        User user = SecurityUtils.getCurrentUserOrThrow();
+
+        DiarySummary diary = diaryMapper.selectDiaryById(diaryId);
+        if (diary == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found");
+        }
+        if (!diary.getAuthorId().equals(user.getUserId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot delete this diary");
+        }
+
+        diaryMapper.deleteDiaryTags(diaryId);
+        diaryMapper.deleteDiary(diaryId);
+    }
+
     private List<String> sanitizeTags(List<String> rawTags) {
         if (rawTags == null || rawTags.isEmpty()) {
             return List.of();

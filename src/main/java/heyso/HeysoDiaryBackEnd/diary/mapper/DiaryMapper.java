@@ -16,19 +16,21 @@ public interface DiaryMapper {
     List<DiarySummary> selectDiaryList(@Param("request") DiaryListRequest request);
 
     List<DiarySummary> selectDailyDiaryList(@Param("userId") Long userId,
-                                            @Param("diaryDate") String diaryDate);
+            @Param("diaryDate") String diaryDate);
 
     List<DiaryMonthlyCount> selectDiaryMonthlyCounts(@Param("userId") Long userId,
-                                                     @Param("diaryMonth") String diaryMonth);
+            @Param("diaryMonth") String diaryMonth);
 
     DiarySummary selectDiaryById(@Param("diaryId") Long diaryId);
 
     void insertDiary(Diary diary);
 
     int updateDiary(@Param("diaryId") Long diaryId,
-                    @Param("title") String title,
-                    @Param("contentMd") String contentMd,
-                    @Param("diaryDate") LocalDate diaryDate);
+            @Param("title") String title,
+            @Param("contentMd") String contentMd,
+            @Param("diaryDate") LocalDate diaryDate);
+
+    void deleteDiary(@Param("diaryId") Long diaryId);
 
     void deleteDiaryTags(@Param("diaryId") Long diaryId);
 
@@ -49,11 +51,11 @@ public interface DiaryMapper {
     /* --------------------------- AI 컨텍스트 조회용 ---------------------------- */
 
     List<DiarySummary> selectRecentDiaries(@Param("userId") Long userId,
-                                           @Param("excludeDiaryId") Long excludeDiaryId,
-                                           @Param("limit") Integer limit);
+            @Param("excludeDiaryId") Long excludeDiaryId,
+            @Param("limit") Integer limit);
 
     List<DiarySummary> selectDiariesByTags(@Param("userId") Long userId,
-                                           @Param("excludeDiaryId") Long excludeDiaryId,
-                                           @Param("tagNames") List<String> tagNames,
-                                           @Param("limit") Integer limit);
+            @Param("excludeDiaryId") Long excludeDiaryId,
+            @Param("tagNames") List<String> tagNames,
+            @Param("limit") Integer limit);
 }

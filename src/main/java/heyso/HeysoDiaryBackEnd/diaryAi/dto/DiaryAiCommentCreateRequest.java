@@ -25,13 +25,12 @@ public class DiaryAiCommentCreateRequest {
 
     @DecimalMin("0.0")
     @DecimalMax("2.0")
-    private BigDecimal temperature;
+    private BigDecimal temperature = BigDecimal.valueOf(0.7);
 
     @DecimalMin("0.0")
     @DecimalMax("1.0")
-    private BigDecimal topP;
+    private BigDecimal topP = BigDecimal.valueOf(0.9);
 
     @Positive
-    private Integer maxOutputTokens;
+    private Integer maxOutputTokens = 1000;
 }
-
