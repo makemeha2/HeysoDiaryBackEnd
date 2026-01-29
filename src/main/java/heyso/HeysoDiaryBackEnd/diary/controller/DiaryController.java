@@ -58,6 +58,11 @@ public class DiaryController {
         return diaryService.getDailyDiaryList(day);
     }
 
+    @GetMapping("/mytags")
+    public List<String> getTagNamesByUserId() {
+        return diaryService.getTagNamesByUserId();
+    }
+
     @PostMapping
     public ResponseEntity<DiaryCreateResponse> createDiary(
             @Valid @RequestBody DiaryCreateRequest request) {

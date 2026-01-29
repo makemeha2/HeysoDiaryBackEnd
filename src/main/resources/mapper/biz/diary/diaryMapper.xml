@@ -184,6 +184,17 @@
         </foreach>
     </select>
 
+    <select id="selectTagNamesByUserId" resultType="string">
+        SELECT DISTINCT
+            t.tag_name
+        FROM tb_diary d
+        INNER JOIN tb_diary_tag dt ON dt.diary_id = d.diary_id
+        INNER JOIN tb_tag t ON t.tag_id = dt.tag_id
+        WHERE d.user_id = #{userId}
+          AND d.is_deleted = 0
+        ORDER BY t.tag_name
+    </select>
+
     <!-- ====================== AI 컨텍스트 조회용 ====================== -->
 
     <select id="selectRecentDiaries" resultMap="DiarySummaryResultMap">

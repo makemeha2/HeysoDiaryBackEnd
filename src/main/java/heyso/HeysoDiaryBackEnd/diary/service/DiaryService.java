@@ -80,6 +80,12 @@ public class DiaryService {
         return DiaryListResponse.of(responses);
     }
 
+    public List<String> getTagNamesByUserId() {
+        User user = SecurityUtils.getCurrentUserOrThrow();
+
+        return diaryMapper.selectTagNamesByUserId(user.getUserId());
+    }
+
     @Transactional
     public DiaryCreateResponse createDiary(DiaryCreateRequest request) {
         // TODO : 사용자의 status가 BLOCKED 이거나 INACTIVE일 경우 return;
@@ -133,7 +139,7 @@ public class DiaryService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot delete this diary");
         }
 
-        diaryMapper.deleteDiaryTags(diaryId);
+        // diaryMapper.deleteDiaryTags(diaryId);
         diaryMapper.deleteDiary(diaryId);
     }
 

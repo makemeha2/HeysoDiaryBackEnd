@@ -48,6 +48,8 @@ public interface DiaryMapper {
 
     List<DiaryTag> selectDiaryTags(@Param("diaryIds") List<Long> diaryIds);
 
+    List<String> selectTagNamesByUserId(@Param("userId") Long userId);
+
     /* --------------------------- AI 컨텍스트 조회용 ---------------------------- */
 
     List<DiarySummary> selectRecentDiaries(@Param("userId") Long userId,
