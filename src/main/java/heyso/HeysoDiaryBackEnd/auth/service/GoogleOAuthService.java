@@ -35,6 +35,7 @@ public class GoogleOAuthService {
         String email = payload.getEmail();
         boolean emailVerified = Boolean.TRUE.equals(payload.getEmailVerified());
         String name = (String) payload.get("name");
+        String profileImgUrl = (String) payload.get("picture");
 
         if (!emailVerified) {
             throw new IllegalArgumentException("Google email is not verified");
@@ -64,7 +65,8 @@ public class GoogleOAuthService {
                 user.getUserId(),
                 user.getEmail(),
                 user.getNickname(),
-                user.getRole());
+                user.getRole(),
+                profileImgUrl);
     }
 
     private User registerNewGoogleUser(String googleSub, String email, String name) {
