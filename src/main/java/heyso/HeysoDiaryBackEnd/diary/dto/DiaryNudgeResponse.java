@@ -1,7 +1,5 @@
 package heyso.HeysoDiaryBackEnd.diary.dto;
 
-import com.google.auto.value.AutoValue.Builder;
-
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

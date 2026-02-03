@@ -1,11 +1,9 @@
 package heyso.HeysoDiaryBackEnd.diary.service;
 
-import java.text.Format;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.lang3.StringUtils;
@@ -13,13 +11,14 @@ import org.springframework.ai.chat.client.ChatClient.CallResponseSpec;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import heyso.HeysoDiaryBackEnd.Utils.DateUtil;
 import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient;
 import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient.RoleMessage;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryNudgeResponse;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.Diary;
 import heyso.HeysoDiaryBackEnd.diary.model.DiaryNudgeEventLog;
+import heyso.HeysoDiaryBackEnd.utils.DateUtil;
+import heyso.HeysoDiaryBackEnd.utils.TextSnippetUtil;
 import lombok.AllArgsConstructor;
 
 @Service
@@ -30,14 +29,6 @@ public class DiaryNudgeService {
     private static final int MESSAGE_TEXT_MAX = 255;
     private static final int DIARY_SNIPPET_MAX = 1000;
     private static final String DEFAULT_MODEL = "gpt-4o";
-
-    private static final String EVENT_STRESS = "스트레스";
-    private static final String EVENT_FAMILY = "가족";
-    private static final String EVENT_WORK = "업무 일정";
-    private static final String EVENT_EXERCISE = "운동";
-    private static final String EVENT_READING = "독서";
-    private static final String EVENT_REST = "휴식";
-    private static final String EVENT_NORMAL = "평범한 하루";
 
     private static final String NUDGE_SYSTEM_PROMPT = """
             너는 사용자의 일기 내용을 바탕으로 오늘 하루를 정리하는 일기를 쓸수 있게 도와주는 안부 질문을 만든다.
@@ -59,10 +50,7 @@ public class DiaryNudgeService {
             Diary diary = diaryMapper.selectLatestDiaryBeforeDate(userId, today);
 
             if (diary != null) {
-                String aiMessage = null;
-                if (diary != null) {
-                    aiMessage = callNudgeModel(diary);
-                }
+                String aiMessage = callNudgeModel(diary);
 
                 String finalText = StringUtils.isNotBlank(aiMessage) ? aiMessage : "";
                 response.setMessageText(finalText);
@@ -105,7 +93,7 @@ public class DiaryNudgeService {
     private String buildUserPrompt(Diary diary) {
         String diaryDate = diary.getDiaryDate() == null ? "" : diary.getDiaryDate().toString();
         String title = StringUtils.defaultString(diary.getTitle());
-        String snippet = normalizeAndLimit(diary.getContentMd(), DIARY_SNIPPET_MAX);
+        String snippet = TextSnippetUtil.normalizeAndLimit(diary.getContentMd(), DIARY_SNIPPET_MAX);
 
         return """
                 [오늘 이전 최신 일기]
@@ -116,17 +104,6 @@ public class DiaryNudgeService {
 
                 위 내용을 바탕으로 짧게 안부로 말을 건낼 수 있는 질문을 던져줘.
                 """.formatted(diaryDate, title, snippet);
-    }
-
-    private String normalizeAndLimit(String contentMd, int maxChars) {
-        if (StringUtils.isBlank(contentMd)) {
-            return "";
-        }
-        String normalized = contentMd.replaceAll("\\s+", " ").trim();
-        if (normalized.length() <= maxChars) {
-            return normalized;
-        }
-        return normalized.substring(0, maxChars) + "...";
     }
 
     private void insertEventLogSafely(Long userId, LocalDate localDate, DiaryNudgeResponse response) {

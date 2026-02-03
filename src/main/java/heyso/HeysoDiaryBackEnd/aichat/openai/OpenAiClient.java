@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.math.BigDecimal;
 
 @Component
 @RequiredArgsConstructor
@@ -35,10 +34,10 @@ public class OpenAiClient {
      * 옵션(temperature, topP, maxTokens)을 포함한 호출
      */
     public CallResponseSpec createResponseSpec(String modelName,
-                                               List<RoleMessage> messages,
-                                               BigDecimal temperature,
-                                               BigDecimal topP,
-                                               Integer maxOutputTokens) {
+            List<RoleMessage> messages,
+            Double temperature,
+            Double topP,
+            Integer maxOutputTokens) {
         List<Message> springMessages = new ArrayList<>();
 
         for (RoleMessage m : messages) {

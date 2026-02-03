@@ -7,9 +7,7 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.client.ChatClient.CallResponseSpec;
-import org.springframework.ai.chat.metadata.EmptyUsage;
-import org.springframework.ai.chat.metadata.Usage;
-import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -36,29 +34,31 @@ import heyso.HeysoDiaryBackEnd.aichat.model.ChatConversation;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatConversationSummary;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatMessage;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatUsageLog;
+import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallExecutor;
+import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallOptions;
+import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallResult;
 import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient;
 import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient.RoleMessage;
-import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiProperties;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.user.model.User;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class AiChatService {
     private final AiChatMapper aiChatMapper;
     private final OpenAiClient openAiClient;
-    private final OpenAiProperties openAiProperties;
     private final AiChatDtoMapper dtoMapper;
+    private final AiCallExecutor aiCallExecutor;
 
-    private static final int SUMMARY_UPDATE_THRESHOLD = 10;
-    private static final int SUMMARY_MAX_APPEND_MESSAGES = 10;
+    private int SUMMARY_UPDATE_THRESHOLD = 10;
+    private int SUMMARY_MAX_APPEND_MESSAGES = 10;
 
-    public AiChatService(AiChatMapper aiChatMapper, OpenAiClient openAiClient, OpenAiProperties openAiProperties,
-            AiChatDtoMapper dtoMapper) {
-        this.aiChatMapper = aiChatMapper;
-        this.openAiClient = openAiClient;
-        this.openAiProperties = openAiProperties;
-        this.dtoMapper = dtoMapper;
-    }
+    @Value("${app.ai.context-message-limit:10}")
+    private int contextMessageLimit;
+
+    @Value("${app.ai.summary-prefix:Conversation summary:\n}")
+    private String summaryPrefix;
 
     // 채팅방 목록을 가져온다.
     public ChatConversationListResponse listConversations(ChatConversationListRequest request) {
@@ -255,11 +255,10 @@ public class AiChatService {
 
         ChatConversationSummary summary = aiChatMapper.selectSummaryByUser(user.getUserId(), conversationId);
         if (summary != null && summary.getSummary() != null && !summary.getSummary().isBlank()) {
-            input.add(new RoleMessage("developer", openAiProperties.getSummaryPrefix() + summary.getSummary()));
+            input.add(new RoleMessage("developer", summaryPrefix + summary.getSummary()));
         }
 
-        List<ChatMessage> recentDesc = aiChatMapper.selectRecentMessages(conversationId,
-                openAiProperties.getContextMessageLimit());
+        List<ChatMessage> recentDesc = aiChatMapper.selectRecentMessages(conversationId, contextMessageLimit);
         Collections.reverse(recentDesc); // 시간순 정렬(오래된 -> 최신)
 
         for (ChatMessage m : recentDesc) {
@@ -276,35 +275,19 @@ public class AiChatService {
                 ? "gpt-4o-mini"
                 : conversation.getModel();
 
-        CallResponseSpec responseSpec;
+        AiCallResult result = new AiCallResult();
         try {
-            responseSpec = openAiClient.createResponseSpec(model, input);
+            result = aiCallExecutor.call(model, input, AiCallOptions.empty());
         } catch (Exception e) {
             // OpenAI 장애/네트워크 오류 시: USER 메시지는 남아있고 ASSISTANT는 없을 수 있음
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
         }
 
-        ChatResponse chatResponse = responseSpec.chatResponse();
-        String assistantText = responseSpec.content();
-
-        String requestId = null;
-        Integer promptTokens = null;
-        Integer completionTokens = null;
-        Integer totalTokens = null;
-
-        if (chatResponse != null && chatResponse.getMetadata() != null) {
-            String metadataId = chatResponse.getMetadata().getId();
-            if (metadataId != null && !metadataId.isBlank()) {
-                requestId = metadataId;
-            }
-
-            Usage usage = chatResponse.getMetadata().getUsage();
-            if (usage != null && !(usage instanceof EmptyUsage)) {
-                promptTokens = usage.getPromptTokens();
-                completionTokens = usage.getCompletionTokens();
-                totalTokens = usage.getTotalTokens();
-            }
-        }
+        String assistantText = result.content();
+        String requestId = result.requestId();
+        Integer promptTokens = result.promptTokens();
+        Integer completionTokens = result.completionTokens();
+        Integer totalTokens = result.totalTokens();
 
         if (assistantText == null || assistantText.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI returned empty assistant content");

@@ -26,8 +26,8 @@ public class DiaryAiRun {
     private DiaryAiRunStatus status;
 
     private String model;
-    private BigDecimal temperature;
-    private BigDecimal topP;
+    private Double temperature;
+    private Double topP;
     private Integer maxOutputTokens;
 
     private String requestId;

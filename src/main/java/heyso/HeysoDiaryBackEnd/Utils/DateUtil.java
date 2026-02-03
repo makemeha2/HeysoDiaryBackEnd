@@ -1,4 +1,4 @@
-package heyso.HeysoDiaryBackEnd.Utils;
+package heyso.HeysoDiaryBackEnd.utils;
 
 import java.time.ZonedDateTime;
 import java.time.ZoneId;

@@ -10,17 +10,15 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.ai.chat.client.ChatClient.CallResponseSpec;
-import org.springframework.ai.chat.metadata.EmptyUsage;
-import org.springframework.ai.chat.metadata.Usage;
-import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient;
+import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallExecutor;
+import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallOptions;
+import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallResult;
 import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient.RoleMessage;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
@@ -38,11 +36,14 @@ import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiRunStatus;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiSourceType;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiTriggerType;
 import heyso.HeysoDiaryBackEnd.user.model.User;
+import heyso.HeysoDiaryBackEnd.utils.TextSnippetUtil;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class DiaryAiService {
+
+    private final AiCallExecutor aiCallExecutor;
 
     private static final int DEFAULT_RECENT_LIMIT = 10;
     private static final int DEFAULT_TAG_LIMIT = 10;
@@ -53,7 +54,7 @@ public class DiaryAiService {
     private static final int CONTEXT_DIARY_SNIPPET_MAX = 500;
     private static final int CONTEXT_BLOCK_MAX = 6_000;
 
-    private static final String DEFAULT_MODEL = "gpt-4o-mini";
+    private static final String DEFAULT_MODEL = "gpt-4o";
 
     // private static final String MENTOR_SYSTEM_PROMPT = """
     // 너는 사용자의 일기를 읽고 따뜻하고 성실한 멘토처럼 댓글을 남기는 AI다.
@@ -74,7 +75,6 @@ public class DiaryAiService {
 
     private final DiaryMapper diaryMapper;
     private final DiaryAiMapper diaryAiMapper;
-    private final OpenAiClient openAiClient;
 
     @Transactional
     public DiaryAiCommentCreateResponse createAiComment(Long diaryId) {
@@ -259,46 +259,28 @@ public class DiaryAiService {
         messages.add(new RoleMessage("developer", promptSystem));
         messages.add(new RoleMessage("user", promptUser));
 
-        CallResponseSpec responseSpec;
+        AiCallResult result = null;
+
         try {
-            // OpenAI 호출 준비
-            responseSpec = openAiClient.createResponseSpec(
-                    model,
-                    messages,
-                    request.getTemperature(),
-                    request.getTopP(),
+            AiCallOptions options = AiCallOptions.of(request.getTemperature(), request.getTopP(),
                     request.getMaxOutputTokens());
+
+            result = aiCallExecutor.call(model, messages, options);
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
         }
 
-        ChatResponse chatResponse = responseSpec.chatResponse();
-        String content = responseSpec.content();
+        String content = result.content();
 
         // 응답 본문 검증
         if (StringUtils.isBlank(content)) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI returned empty assistant content");
         }
 
-        String requestId = null;
-        Integer promptTokens = 0;
-        Integer completionTokens = 0;
-        Integer totalTokens = 0;
-
-        // 사용량(토큰) 추출
-        if (chatResponse != null && chatResponse.getMetadata() != null) {
-            String metadataId = chatResponse.getMetadata().getId();
-            if (StringUtils.isNotBlank(metadataId)) {
-                requestId = metadataId;
-            }
-
-            Usage usage = chatResponse.getMetadata().getUsage();
-            if (usage != null && !(usage instanceof EmptyUsage)) {
-                promptTokens = Objects.requireNonNullElse(usage.getPromptTokens(), 0);
-                completionTokens = Objects.requireNonNullElse(usage.getCompletionTokens(), 0);
-                totalTokens = Objects.requireNonNullElse(usage.getTotalTokens(), 0);
-            }
-        }
+        String requestId = result.requestId();
+        Integer promptTokens = result.promptTokens();
+        Integer completionTokens = result.completionTokens();
+        Integer totalTokens = result.totalTokens();
 
         return new AiCallResult(content.trim(), requestId, promptTokens, completionTokens, totalTokens);
     }
@@ -381,7 +363,7 @@ public class DiaryAiService {
         // 오늘 일기 내용을 요약해서 유저 프롬프트로 구성
         String diaryDate = diary.getDiaryDate() == null ? "" : diary.getDiaryDate().toString();
         String title = StringUtils.defaultString(diary.getTitle());
-        String contentSnippet = limitDiaryContent(diary.getContentMd(), TODAY_DIARY_SNIPPET_MAX);
+        String contentSnippet = TextSnippetUtil.normalizeAndLimit(diary.getContentMd(), TODAY_DIARY_SNIPPET_MAX);
 
         return """
                 [오늘 일기]
@@ -399,26 +381,13 @@ public class DiaryAiService {
         LocalDate date = diary.getDiaryDate();
         String dateText = date == null ? "" : date.toString();
         String title = StringUtils.defaultString(diary.getTitle());
-        String snippet = limitDiaryContent(diary.getContentMd(), CONTEXT_DIARY_SNIPPET_MAX);
+        String snippet = TextSnippetUtil.normalizeAndLimit(diary.getContentMd(), CONTEXT_DIARY_SNIPPET_MAX);
 
         return """
                 (%d) [%s] %s - %s
                 %s
 
                 """.formatted(sortOrder, sourceType.name(), dateText, title, snippet);
-    }
-
-    private String limitDiaryContent(String contentMd, int maxChars) {
-        // 공백 정규화 후 길이 제한
-        if (StringUtils.isBlank(contentMd)) {
-            return "";
-        }
-
-        String normalized = contentMd.replaceAll("\\s+", " ").trim();
-        if (normalized.length() <= maxChars) {
-            return normalized;
-        }
-        return normalized.substring(0, maxChars) + "...";
     }
 
     private String sha256(String input) {
@@ -452,12 +421,5 @@ public class DiaryAiService {
             return trimmed;
         }
         return trimmed.substring(0, maxLen);
-    }
-
-    private record AiCallResult(String content,
-            String requestId,
-            Integer promptTokens,
-            Integer completionTokens,
-            Integer totalTokens) {
     }
 }
