@@ -3,6 +3,7 @@ package heyso.HeysoDiaryBackEnd.diary.mapper;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryListRequest;
 import heyso.HeysoDiaryBackEnd.diary.model.DiaryMonthlyCount;
 import heyso.HeysoDiaryBackEnd.diary.model.Diary;
+import heyso.HeysoDiaryBackEnd.diary.model.DiaryNudgeEventLog;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
 import heyso.HeysoDiaryBackEnd.diary.model.DiaryTag;
 import org.apache.ibatis.annotations.Mapper;
@@ -23,6 +24,9 @@ public interface DiaryMapper {
 
     DiarySummary selectDiaryById(@Param("diaryId") Long diaryId);
 
+    Diary selectLatestDiaryBeforeDate(@Param("userId") Long userId,
+            @Param("today") LocalDate today);
+
     void insertDiary(Diary diary);
 
     int updateDiary(@Param("diaryId") Long diaryId,
@@ -33,6 +37,10 @@ public interface DiaryMapper {
     void deleteDiary(@Param("diaryId") Long diaryId);
 
     void deleteDiaryTags(@Param("diaryId") Long diaryId);
+
+    /* --------------------------- Nudge 이벤트 로그 ---------------------------- */
+
+    void insertDiaryNudgeEventLog(DiaryNudgeEventLog eventLog);
 
     /* ------------------------------ 태그 관련 ----------------------------------- */
 

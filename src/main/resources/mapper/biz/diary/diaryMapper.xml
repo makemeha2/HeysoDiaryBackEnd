@@ -15,6 +15,16 @@
         <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
     </resultMap>
 
+    <resultMap id="DiaryResultMap" type="heyso.HeysoDiaryBackEnd.diary.model.Diary">
+        <id column="diary_id" property="diaryId"/>
+        <result column="user_id" property="userId"/>
+        <result column="title" property="title"/>
+        <result column="content_md" property="contentMd"/>
+        <result column="diary_date" jdbcType="DATE" property="diaryDate"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
     <select id="selectDiaryList" resultMap="DiarySummaryResultMap">
         SELECT
             d.diary_id,
@@ -79,6 +89,23 @@
           AND d.is_deleted = 0
     </select>
 
+    <select id="selectLatestDiaryBeforeDate" resultMap="DiaryResultMap">
+        SELECT
+            d.diary_id,
+            d.user_id,
+            d.title,
+            d.content_md,
+            d.diary_date,
+            d.created_at,
+            d.updated_at
+        FROM tb_diary d
+        WHERE d.is_deleted = 0
+          AND d.user_id = #{userId}
+          AND d.diary_date &lt; #{today}
+        ORDER BY d.diary_date DESC, d.created_at DESC, d.diary_id DESC
+        LIMIT 1
+    </select>
+
     <insert id="insertDiary" parameterType="heyso.HeysoDiaryBackEnd.diary.model.Diary"
             useGeneratedKeys="true" keyProperty="diaryId">
         INSERT INTO tb_diary (
@@ -124,6 +151,32 @@
         DELETE FROM tb_diary_tag
         WHERE diary_id = #{diaryId}
     </delete>
+
+    <!-- ====================== Nudge 이벤트 로그 ====================== -->
+
+    <insert id="insertDiaryNudgeEventLog" parameterType="heyso.HeysoDiaryBackEnd.diary.model.DiaryNudgeEventLog"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tb_diary_nudge_event_log (
+            user_id,
+            local_date,
+            event_type,
+            message_key,
+            message_text,
+            client_time,
+            created_at,
+            metadata_json
+        )
+        VALUES (
+            #{userId},
+            #{localDate},
+            #{eventType},
+            #{messageKey},
+            #{messageText},
+            #{clientTime},
+            NOW(),
+            #{metadataJson, jdbcType=OTHER}
+        )
+    </insert>
 
     <!-- ====================== Tag 관련 ====================== -->
 

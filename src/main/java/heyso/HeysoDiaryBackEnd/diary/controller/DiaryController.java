@@ -6,13 +6,19 @@ import heyso.HeysoDiaryBackEnd.diary.dto.DiaryCreateRequest;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryCreateResponse;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryEditRequest;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryDetailResponse;
+import heyso.HeysoDiaryBackEnd.diary.dto.DiaryNudgeResponse;
 import heyso.HeysoDiaryBackEnd.diary.model.DiaryMonthlyCount;
+import heyso.HeysoDiaryBackEnd.diary.service.DiaryNudgeService;
 import heyso.HeysoDiaryBackEnd.diary.service.DiaryService;
+import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,15 +30,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @Validated
 @RestController
 @RequestMapping("/api/diary")
 public class DiaryController {
 
     private final DiaryService diaryService;
+    private final DiaryNudgeService diaryNudgeService;
 
-    public DiaryController(DiaryService diaryService) {
+    public DiaryController(DiaryService diaryService, DiaryNudgeService diaryNudgeService) {
         this.diaryService = diaryService;
+        this.diaryNudgeService = diaryNudgeService;
     }
 
     @GetMapping
@@ -82,5 +91,22 @@ public class DiaryController {
     public ResponseEntity<Void> deleteDiary(@PathVariable Long diaryId) {
         diaryService.deleteDiary(diaryId);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/diary-nudge/today")
+    public CompletableFuture<ResponseEntity<DiaryNudgeResponse>> getTodayDiaryNudge() {
+        Long userId = SecurityUtils.getCurrentUserOrThrow().getUserId();
+        return diaryNudgeService.createTodayNudgeAsync(userId)
+                .thenApply(ResponseEntity::ok)
+                .exceptionally(ex -> {
+                    // 반드시 로그 남기기
+                    log.error("createTodayNudgeAsync failed", ex);
+
+                    // 원하는 상태코드로 내려주기 (예: 500)
+                    return ResponseEntity
+                            .status(500)
+                            .body(new DiaryNudgeResponse("", "잠시 후 다시 시도해 주세요.")); // DTO에 맞게
+                });
+
     }
 }
