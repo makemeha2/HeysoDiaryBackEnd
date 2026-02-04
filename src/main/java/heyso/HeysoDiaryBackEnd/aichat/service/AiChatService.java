@@ -275,7 +275,7 @@ public class AiChatService {
                 ? "gpt-4o-mini"
                 : conversation.getModel();
 
-        AiCallResult result = new AiCallResult();
+        AiCallResult result = null;
         try {
             result = aiCallExecutor.call(model, input, AiCallOptions.empty());
         } catch (Exception e) {

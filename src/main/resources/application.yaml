@@ -1,4 +1,16 @@
 spring:
+  datasource:
+    # secret-key는 환경변수로 설정
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: com.p6spy.engine.spy.P6SpyDriver #org.mariadb.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 50MB # 하나의 파일의 최대 사이즈
+      max-request-size: 60MB # 한번의 요청으로 허용가능한 여러개 파일의 합계 사이즈
+  mvc:
+    log-request-details: true # 로그에 API 요청 파라미터까지 보도록 처리, 반드시 운영에서는 비활성화
   application:
     name: HeysoDiaryBackEnd
   profiles:
