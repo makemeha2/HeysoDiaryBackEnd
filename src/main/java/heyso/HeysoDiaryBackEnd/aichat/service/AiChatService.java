@@ -325,21 +325,21 @@ public class AiChatService {
 
     private void updateSummaryIfNeeded(Long userId, Long conversationId, String conversationModel) {
 
-        // ✅ (1) 서비스 레벨에서도 소유권 체크 (이중 방어)
+        // (1) 서비스 레벨에서도 소유권 체크 (이중 방어)
         ChatConversation conversation = aiChatMapper.selectConversationById(conversationId);
         if (conversation == null || conversation.getIsDeleted())
             return;
         if (!conversation.getUserId().equals(userId))
             return;
 
-        // ✅ (2) summary 조회도 user 조건으로
+        // (2) summary 조회도 user 조건으로
         ChatConversationSummary summary = aiChatMapper.selectSummaryByUser(userId, conversationId);
 
         long lastMessageId = (summary == null || summary.getLastMessageId() == null)
                 ? 0L
                 : summary.getLastMessageId();
 
-        // ✅ (3) count/select도 user 조건으로
+        // (3) count/select도 user 조건으로
         int newCount = aiChatMapper.countMessagesAfterByUser(userId, conversationId, lastMessageId);
         if (newCount < SUMMARY_UPDATE_THRESHOLD)
             return;
