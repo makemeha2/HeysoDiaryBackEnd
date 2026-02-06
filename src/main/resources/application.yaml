@@ -4,7 +4,7 @@ spring:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
-    driver-class-name: com.p6spy.engine.spy.P6SpyDriver #org.mariadb.jdbc.Driver
+    driver-class-name: org.mariadb.jdbc.Driver
   servlet:
     multipart:
       max-file-size: 50MB # 하나의 파일의 최대 사이즈
@@ -13,11 +13,6 @@ spring:
     log-request-details: true # 로그에 API 요청 파라미터까지 보도록 처리, 반드시 운영에서는 비활성화
   application:
     name: HeysoDiaryBackEnd
-  profiles:
-    active: local
-  rsocket:
-    server:
-      port: 8080
 
   # flyway db-migration
   flyway:
