@@ -13,7 +13,11 @@ spring:
     log-request-details: true # 로그에 API 요청 파라미터까지 보도록 처리, 반드시 운영에서는 비활성화
   application:
     name: HeysoDiaryBackEnd
-
+  profiles:
+    active: local
+  rsocket:
+    server:
+      port: 8080
   # flyway db-migration
   flyway:
     enabled: true
