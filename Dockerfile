@@ -5,6 +5,8 @@ ARG MAVEN_MIRROR_URL=""
 ARG MAVEN_RETRY_COUNT=4
 
 WORKDIR /app
+
+# 1) pom 먼저 복사 → 의존성만 먼저 받기(캐시 효율)
 COPY pom.xml ./
 
 RUN --mount=type=cache,target=/root/.m2 \
@@ -20,12 +22,23 @@ RUN --mount=type=cache,target=/root/.m2 \
   '    </mirror>' \
   '  </mirrors>' \
   '</settings>' > /tmp/settings.xml; \
-  fi; \
-  if [ -n "$MAVEN_MIRROR_URL" ]; then \
-  SETTINGS_ARGS="-s /tmp/settings.xml"; \
+  SETTINGS_ARGS="--settings /tmp/settings.xml"; \
   else \
   SETTINGS_ARGS=""; \
   fi; \
+  for i in $(seq 1 "$MAVEN_RETRY_COUNT"); do \
+  mvn -B -U -ntp -DskipTests -Dmaven.wagon.http.retryHandler.count=5 $SETTINGS_ARGS dependency:go-offline && break; \
+  if [ "$i" -eq "$MAVEN_RETRY_COUNT" ]; then exit 1; fi; \
+  sleep 5; \
+  done
+
+# 2) 이제 소스 복사
+COPY . .
+
+# 3) 소스 포함된 상태에서 package 실행 (여기서 main class 탐지됨)
+RUN --mount=type=cache,target=/root/.m2 \
+  set -eux; \
+  if [ -f /tmp/settings.xml ]; then SETTINGS_ARGS="--settings /tmp/settings.xml"; else SETTINGS_ARGS=""; fi; \
   for i in $(seq 1 "$MAVEN_RETRY_COUNT"); do \
   mvn -B -U -ntp -DskipTests -Dmaven.wagon.http.retryHandler.count=5 $SETTINGS_ARGS package && break; \
   if [ "$i" -eq "$MAVEN_RETRY_COUNT" ]; then exit 1; fi; \
@@ -35,12 +48,12 @@ RUN --mount=type=cache,target=/root/.m2 \
 # ---- runtime ----
 FROM eclipse-temurin:17-jre
 
-# healthcheck에서 curl 사용 가능하도록 설치
+# healthcheck에서 curl을 쓰려면 런타임 이미지에 설치 필요
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl \
   && rm -rf /var/lib/apt/lists/*
 
-# (옵션) non-root 사용자로 실행
+# (권장) non-root 실행
 RUN useradd -u 10001 -m appuser
 USER 10001
 
