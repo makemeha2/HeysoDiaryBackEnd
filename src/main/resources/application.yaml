@@ -50,3 +50,7 @@ app:
   ai:
     context-message-limit: 10
     summary-prefix: "Conversation summary:\n"
+
+feature:
+  comCdAdmin:
+    enabled: false

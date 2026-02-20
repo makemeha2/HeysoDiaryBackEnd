@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.comCd.mapper.CommonCodeMapper">
+
+    <resultMap id="CommonCodeGroupResultMap" type="heyso.HeysoDiaryBackEnd.comCd.model.CommonCodeGroup">
+        <id column="group_id" property="groupId"/>
+        <result column="group_name" property="groupName"/>
+        <result column="is_active" property="isActive"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="created_id" property="createdId"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+        <result column="updated_id" property="updatedId"/>
+    </resultMap>
+
+    <resultMap id="CommonCodeResultMap" type="heyso.HeysoDiaryBackEnd.comCd.model.CommonCode">
+        <id column="group_id" property="groupId"/>
+        <id column="code_id" property="codeId"/>
+        <result column="code_name" property="codeName"/>
+        <result column="is_active" property="isActive"/>
+        <result column="extra_info1" property="extraInfo1"/>
+        <result column="extra_info2" property="extraInfo2"/>
+        <result column="sort_seq" property="sortSeq"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="created_id" property="createdId"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+        <result column="updated_id" property="updatedId"/>
+    </resultMap>
+
+    <!-- ====================== 관리자: 그룹 CRUD ====================== -->
+
+    <select id="selectCommonCodeGroupListForAdmin" resultMap="CommonCodeGroupResultMap">
+        SELECT
+            group_id,
+            group_name,
+            is_active,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        FROM tb_common_code_group
+        ORDER BY group_id
+    </select>
+
+    <select id="selectCommonCodeGroupById" resultMap="CommonCodeGroupResultMap">
+        SELECT
+            group_id,
+            group_name,
+            is_active,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        FROM tb_common_code_group
+        WHERE group_id = #{groupId}
+    </select>
+
+    <insert id="insertCommonCodeGroup" parameterType="heyso.HeysoDiaryBackEnd.comCd.model.CommonCodeGroup">
+        INSERT INTO tb_common_code_group (
+            group_id,
+            group_name,
+            is_active,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        )
+        VALUES (
+            #{groupId},
+            #{groupName},
+            #{isActive},
+            NOW(),
+            #{createdId},
+            NOW(),
+            #{updatedId}
+        )
+    </insert>
+
+    <update id="updateCommonCodeGroup" parameterType="heyso.HeysoDiaryBackEnd.comCd.model.CommonCodeGroup">
+        UPDATE tb_common_code_group
+        SET
+            group_name = #{groupName},
+            is_active = #{isActive},
+            updated_at = NOW(),
+            updated_id = #{updatedId}
+        WHERE group_id = #{groupId}
+    </update>
+
+    <update id="deleteCommonCodeGroup">
+        UPDATE tb_common_code_group
+        SET
+            is_active = 0,
+            updated_at = NOW(),
+            updated_id = #{updatedId}
+        WHERE group_id = #{groupId}
+    </update>
+
+    <!-- ====================== 관리자: 코드 CRUD ====================== -->
+
+    <select id="selectCommonCodeListForAdmin" resultMap="CommonCodeResultMap">
+        SELECT
+            group_id,
+            code_id,
+            code_name,
+            is_active,
+            extra_info1,
+            extra_info2,
+            sort_seq,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        FROM tb_common_code
+        WHERE group_id = #{groupId}
+        ORDER BY sort_seq ASC, code_id ASC
+    </select>
+
+    <select id="selectCommonCodeById" resultMap="CommonCodeResultMap">
+        SELECT
+            group_id,
+            code_id,
+            code_name,
+            is_active,
+            extra_info1,
+            extra_info2,
+            sort_seq,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        FROM tb_common_code
+        WHERE group_id = #{groupId}
+          AND code_id = #{codeId}
+    </select>
+
+    <insert id="insertCommonCode" parameterType="heyso.HeysoDiaryBackEnd.comCd.model.CommonCode">
+        INSERT INTO tb_common_code (
+            group_id,
+            code_id,
+            code_name,
+            is_active,
+            extra_info1,
+            extra_info2,
+            sort_seq,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        )
+        VALUES (
+            #{groupId},
+            #{codeId},
+            #{codeName},
+            #{isActive},
+            #{extraInfo1},
+            #{extraInfo2},
+            #{sortSeq},
+            NOW(),
+            #{createdId},
+            NOW(),
+            #{updatedId}
+        )
+    </insert>
+
+    <update id="updateCommonCode" parameterType="heyso.HeysoDiaryBackEnd.comCd.model.CommonCode">
+        UPDATE tb_common_code
+        SET
+            code_name = #{codeName},
+            is_active = #{isActive},
+            extra_info1 = #{extraInfo1},
+            extra_info2 = #{extraInfo2},
+            sort_seq = #{sortSeq},
+            updated_at = NOW(),
+            updated_id = #{updatedId}
+        WHERE group_id = #{groupId}
+          AND code_id = #{codeId}
+    </update>
+
+    <update id="deleteCommonCode">
+        UPDATE tb_common_code
+        SET
+            is_active = 0,
+            updated_at = NOW(),
+            updated_id = #{updatedId}
+        WHERE group_id = #{groupId}
+          AND code_id = #{codeId}
+    </update>
+
+    <!-- ====================== 사용자: 활성 코드 조회 ====================== -->
+
+    <select id="selectActiveCommonCodeGroupList" resultMap="CommonCodeGroupResultMap">
+        SELECT
+            group_id,
+            group_name,
+            is_active,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        FROM tb_common_code_group
+        WHERE is_active = 1
+        ORDER BY group_id
+    </select>
+
+    <select id="selectActiveCommonCodeListByGroupId" resultMap="CommonCodeResultMap">
+        SELECT
+            c.group_id,
+            c.code_id,
+            c.code_name,
+            c.is_active,
+            c.extra_info1,
+            c.extra_info2,
+            c.sort_seq,
+            c.created_at,
+            c.created_id,
+            c.updated_at,
+            c.updated_id
+        FROM tb_common_code c
+        INNER JOIN tb_common_code_group g ON g.group_id = c.group_id
+        WHERE c.group_id = #{groupId}
+          AND g.is_active = 1
+          AND c.is_active = 1
+        ORDER BY c.sort_seq ASC, c.code_id ASC
+    </select>
+
+</mapper>
