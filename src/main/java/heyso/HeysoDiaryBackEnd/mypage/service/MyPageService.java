@@ -10,37 +10,35 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
-import heyso.HeysoDiaryBackEnd.mypage.dto.MyPageResponse;
-import heyso.HeysoDiaryBackEnd.mypage.dto.MyPageUpdateRequest;
-import heyso.HeysoDiaryBackEnd.mypage.mapper.MyPageMapper;
+import heyso.HeysoDiaryBackEnd.mypage.dto.UserProfileResponse;
+import heyso.HeysoDiaryBackEnd.mypage.dto.UserProfileUpdateRequest;
+import heyso.HeysoDiaryBackEnd.mypage.mapper.UserProfileMapper;
 import heyso.HeysoDiaryBackEnd.mypage.model.UserProfile;
 import heyso.HeysoDiaryBackEnd.mypage.model.UserThumbnail;
 import heyso.HeysoDiaryBackEnd.user.model.User;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class MyPageService {
-    private final MyPageMapper myPageMapper;
-
-    public MyPageService(MyPageMapper myPageMapper) {
-        this.myPageMapper = myPageMapper;
-    }
+    private final UserProfileMapper userProfileMapper;
 
     @Transactional(readOnly = true)
-    public MyPageResponse getMyPage() {
+    public UserProfileResponse getMyPage() {
         User user = SecurityUtils.getCurrentUserOrThrow();
         ensureUserProfile(user.getUserId());
 
-        UserProfile userProfile = myPageMapper.selectUserProfileByUserId(user.getUserId());
+        UserProfile userProfile = userProfileMapper.selectUserProfileByUserId(user.getUserId());
         if (userProfile == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found");
         }
 
-        boolean hasThumbnail = myPageMapper.existsUserThumbnail(user.getUserId()) > 0;
-        return MyPageResponse.from(userProfile, hasThumbnail);
+        boolean hasThumbnail = userProfileMapper.existsUserThumbnail(user.getUserId()) > 0;
+        return UserProfileResponse.from(userProfile, hasThumbnail);
     }
 
     @Transactional
-    public void updateMyPage(MyPageUpdateRequest request) {
+    public void updateMyPage(UserProfileUpdateRequest request) {
         User user = SecurityUtils.getCurrentUserOrThrow();
         ensureUserProfile(user.getUserId());
 
@@ -50,7 +48,7 @@ public class MyPageService {
                 .mbti(normalizeMbti(request.getMbti()))
                 .build();
 
-        int updatedRows = myPageMapper.updateUserProfile(userProfile);
+        int updatedRows = userProfileMapper.updateUserProfile(userProfile);
         if (updatedRows <= 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Failed to update user profile");
         }
@@ -64,7 +62,7 @@ public class MyPageService {
     @Transactional(readOnly = true)
     public UserThumbnail getMyThumbnail() {
         User user = SecurityUtils.getCurrentUserOrThrow();
-        UserThumbnail thumbnail = myPageMapper.selectUserThumbnailByUserId(user.getUserId());
+        UserThumbnail thumbnail = userProfileMapper.selectUserThumbnailByUserId(user.getUserId());
         if (thumbnail == null || thumbnail.getImageBlob() == null || thumbnail.getImageBlob().length == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Thumbnail not found");
         }
@@ -72,7 +70,7 @@ public class MyPageService {
     }
 
     private void ensureUserProfile(Long userId) {
-        myPageMapper.insertUserProfileIfMissing(userId);
+        userProfileMapper.insertUserProfileIfMissing(userId);
     }
 
     private void upsertThumbnail(Long userId, MultipartFile thumbnail) {
@@ -96,7 +94,7 @@ public class MyPageService {
                 .bytes(imageBlob.length)
                 .build();
 
-        myPageMapper.upsertUserThumbnail(userThumbnail);
+        userProfileMapper.upsertUserThumbnail(userThumbnail);
     }
 
     private String normalizeMbti(String mbti) {

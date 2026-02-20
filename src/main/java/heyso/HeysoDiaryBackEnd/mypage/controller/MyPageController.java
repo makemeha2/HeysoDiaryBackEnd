@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import heyso.HeysoDiaryBackEnd.mypage.dto.MyPageResponse;
-import heyso.HeysoDiaryBackEnd.mypage.dto.MyPageUpdateRequest;
+import heyso.HeysoDiaryBackEnd.mypage.dto.UserProfileResponse;
+import heyso.HeysoDiaryBackEnd.mypage.dto.UserProfileUpdateRequest;
 import heyso.HeysoDiaryBackEnd.mypage.model.UserThumbnail;
 import heyso.HeysoDiaryBackEnd.mypage.service.MyPageService;
 import jakarta.validation.Valid;
@@ -28,12 +28,12 @@ public class MyPageController {
     }
 
     @GetMapping
-    public MyPageResponse getMyPage() {
+    public UserProfileResponse getMyPage() {
         return myPageService.getMyPage();
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> updateMyPage(@Valid @ModelAttribute MyPageUpdateRequest request) {
+    public ResponseEntity<Void> updateMyPage(@Valid @ModelAttribute UserProfileUpdateRequest request) {
         myPageService.updateMyPage(request);
         return ResponseEntity.ok().build();
     }

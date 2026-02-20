@@ -10,7 +10,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class MyPageUpdateRequest {
+public class UserProfileUpdateRequest {
     @NotBlank
     @Size(max = 50)
     private String nickname;

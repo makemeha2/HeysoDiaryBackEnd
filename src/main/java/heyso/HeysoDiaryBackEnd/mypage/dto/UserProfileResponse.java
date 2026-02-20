@@ -6,15 +6,15 @@ import lombok.Getter;
 
 @Getter
 @Builder
-public class MyPageResponse {
+public class UserProfileResponse {
     private Long userId;
     private String nickname;
     private String mbti;
     private Boolean hasThumbnail; // TODO : 이 또한 쓸지말지 고민중.
     private String thumbnailUrl; // TODO : 쓸지말지 고민해보자.
 
-    public static MyPageResponse from(UserProfile profile, boolean hasThumbnail) {
-        return MyPageResponse.builder()
+    public static UserProfileResponse from(UserProfile profile, boolean hasThumbnail) {
+        return UserProfileResponse.builder()
                 .userId(profile.getUserId())
                 .nickname(profile.getNickname())
                 .mbti(profile.getMbti())

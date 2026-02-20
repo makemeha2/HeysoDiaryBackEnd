@@ -7,7 +7,7 @@ import heyso.HeysoDiaryBackEnd.mypage.model.UserProfile;
 import heyso.HeysoDiaryBackEnd.mypage.model.UserThumbnail;
 
 @Mapper
-public interface MyPageMapper {
+public interface UserProfileMapper {
     int insertUserProfileIfMissing(@Param("userId") Long userId);
 
     UserProfile selectUserProfileByUserId(@Param("userId") Long userId);
