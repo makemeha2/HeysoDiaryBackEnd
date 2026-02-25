@@ -157,7 +157,6 @@ public class ComCdService {
     }
 
     public List<CommonCodeResponse> getActiveCodeListByGroupId(String groupId) {
-        SecurityUtils.getCurrentUserOrThrow();
         return commonCodeMapper.selectActiveCommonCodeListByGroupId(groupId)
                 .stream()
                 .map(CommonCodeResponse::from)
