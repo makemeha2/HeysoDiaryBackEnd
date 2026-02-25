@@ -63,4 +63,6 @@ public class MyPageController {
             return MediaType.APPLICATION_OCTET_STREAM;
         }
     }
+
+    // 테스트 코드
 }
