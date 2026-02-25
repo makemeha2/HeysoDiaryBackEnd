@@ -45,7 +45,7 @@ app:
 
   oauth2:
     google:
-      client-id: 804003243997-pp5313n2tiju5bgkracp3ua5b3s8fakk.apps.googleusercontent.com
+      client-id: 804003243997-rp87n56snt9sndn5mtmlidhtaou944tv.apps.googleusercontent.com
 
   ai:
     context-message-limit: 10
