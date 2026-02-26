@@ -29,12 +29,17 @@ public class MyPageController {
 
     @GetMapping
     public UserProfileResponse getMyPage() {
-        return myPageService.getMyPage();
+        return myPageService.getProfile();
     }
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> updateMyPage(@Valid @ModelAttribute UserProfileUpdateRequest request) {
-        myPageService.updateMyPage(request);
+    @GetMapping("profile")
+    public UserProfileResponse getProfile() {
+        return myPageService.getProfile();
+    }
+
+    @PostMapping(path = "profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> updateProfile(@Valid @ModelAttribute UserProfileUpdateRequest request) {
+        myPageService.updateProfile(request);
         return ResponseEntity.ok().build();
     }
 

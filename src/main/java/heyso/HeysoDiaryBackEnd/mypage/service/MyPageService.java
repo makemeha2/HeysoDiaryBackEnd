@@ -21,8 +21,11 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class MyPageService {
+    private static final long THUMBNAIL_MAX_BYTES = 500L * 1024L; // 500KB
+
     private final UserProfileMapper userProfileMapper;
 
+    // TODO : 사용여부에 따라 삭제 처리
     @Transactional(readOnly = true)
     public UserProfileResponse getMyPage() {
         User user = SecurityUtils.getCurrentUserOrThrow();
@@ -37,8 +40,22 @@ public class MyPageService {
         return UserProfileResponse.from(userProfile, hasThumbnail);
     }
 
+    @Transactional(readOnly = true)
+    public UserProfileResponse getProfile() {
+        User user = SecurityUtils.getCurrentUserOrThrow();
+        ensureUserProfile(user.getUserId());
+
+        UserProfile userProfile = userProfileMapper.selectUserProfileByUserId(user.getUserId());
+        if (userProfile == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found");
+        }
+
+        boolean hasThumbnail = userProfileMapper.existsUserThumbnail(user.getUserId()) > 0;
+        return UserProfileResponse.from(userProfile, hasThumbnail);
+    }
+
     @Transactional
-    public void updateMyPage(UserProfileUpdateRequest request) {
+    public void updateProfile(UserProfileUpdateRequest request) {
         User user = SecurityUtils.getCurrentUserOrThrow();
         ensureUserProfile(user.getUserId());
 
@@ -55,6 +72,12 @@ public class MyPageService {
 
         MultipartFile thumbnail = request.getThumbnail();
         if (thumbnail != null && !thumbnail.isEmpty()) {
+            if (thumbnail.getSize() > THUMBNAIL_MAX_BYTES) {
+                throw new ResponseStatusException(
+                        HttpStatus.PAYLOAD_TOO_LARGE,
+                        "Thumbnail must be <= 500KB");
+            }
+
             upsertThumbnail(user.getUserId(), thumbnail);
         }
     }
