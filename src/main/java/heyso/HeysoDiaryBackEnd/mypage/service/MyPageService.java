@@ -12,7 +12,9 @@ import org.springframework.web.server.ResponseStatusException;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.mypage.dto.UserProfileResponse;
 import heyso.HeysoDiaryBackEnd.mypage.dto.UserProfileUpdateRequest;
+import heyso.HeysoDiaryBackEnd.mypage.mapper.UserAIFeedbackSettingMapper;
 import heyso.HeysoDiaryBackEnd.mypage.mapper.UserProfileMapper;
+import heyso.HeysoDiaryBackEnd.mypage.model.UserAIFeedbackSetting;
 import heyso.HeysoDiaryBackEnd.mypage.model.UserProfile;
 import heyso.HeysoDiaryBackEnd.mypage.model.UserThumbnail;
 import heyso.HeysoDiaryBackEnd.user.model.User;
@@ -21,8 +23,14 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class MyPageService {
-    private final UserProfileMapper userProfileMapper;
+    private static final long THUMBNAIL_MAX_BYTES = 500L * 1024L; // 500KB
 
+    private final UserProfileMapper userProfileMapper;
+    private final UserAIFeedbackSettingMapper userAIFeedbackSettingMapper;
+
+    // -------------------------------------------------------------------------
+    // MyPage/Profile
+    // -------------------------------------------------------------------------
     @Transactional(readOnly = true)
     public UserProfileResponse getMyPage() {
         User user = SecurityUtils.getCurrentUserOrThrow();
@@ -37,8 +45,22 @@ public class MyPageService {
         return UserProfileResponse.from(userProfile, hasThumbnail);
     }
 
+    @Transactional(readOnly = true)
+    public UserProfileResponse getProfile() {
+        User user = SecurityUtils.getCurrentUserOrThrow();
+        ensureUserProfile(user.getUserId());
+
+        UserProfile userProfile = userProfileMapper.selectUserProfileByUserId(user.getUserId());
+        if (userProfile == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found");
+        }
+
+        boolean hasThumbnail = userProfileMapper.existsUserThumbnail(user.getUserId()) > 0;
+        return UserProfileResponse.from(userProfile, hasThumbnail);
+    }
+
     @Transactional
-    public void updateMyPage(UserProfileUpdateRequest request) {
+    public void updateProfile(UserProfileUpdateRequest request) {
         User user = SecurityUtils.getCurrentUserOrThrow();
         ensureUserProfile(user.getUserId());
 
@@ -55,10 +77,19 @@ public class MyPageService {
 
         MultipartFile thumbnail = request.getThumbnail();
         if (thumbnail != null && !thumbnail.isEmpty()) {
+            if (thumbnail.getSize() > THUMBNAIL_MAX_BYTES) {
+                throw new ResponseStatusException(
+                        HttpStatus.PAYLOAD_TOO_LARGE,
+                        "Thumbnail must be <= 500KB");
+            }
+
             upsertThumbnail(user.getUserId(), thumbnail);
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Thumbnail
+    // -------------------------------------------------------------------------
     @Transactional(readOnly = true)
     public UserThumbnail getMyThumbnail() {
         User user = SecurityUtils.getCurrentUserOrThrow();
@@ -67,10 +98,6 @@ public class MyPageService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Thumbnail not found");
         }
         return thumbnail;
-    }
-
-    private void ensureUserProfile(Long userId) {
-        userProfileMapper.insertUserProfileIfMissing(userId);
     }
 
     private void upsertThumbnail(Long userId, MultipartFile thumbnail) {
@@ -102,5 +129,45 @@ public class MyPageService {
             return null;
         }
         return mbti.trim().toUpperCase(Locale.ROOT);
+    }
+
+    // -------------------------------------------------------------------------
+    // AI Feedback Setting
+    // -------------------------------------------------------------------------
+    @Transactional(readOnly = true)
+    public UserAIFeedbackSetting getAIFeedbackSetting() {
+        User user = SecurityUtils.getCurrentUserOrThrow();
+        ensureUserAIFeedbackSetting(user.getUserId());
+
+        UserAIFeedbackSetting setting = userAIFeedbackSettingMapper
+                .selectUserAIFeedbackSettingByUserId(user.getUserId());
+        if (setting == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "AI feedback setting not found");
+        }
+
+        return setting;
+    }
+
+    @Transactional
+    public void updateAIFeedbackSetting(UserAIFeedbackSetting setting) {
+        User user = SecurityUtils.getCurrentUserOrThrow();
+        ensureUserAIFeedbackSetting(user.getUserId());
+
+        setting.setUserId(user.getUserId());
+        int updatedRows = userAIFeedbackSettingMapper.updateUserAIFeedbackSetting(setting);
+        if (updatedRows <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Failed to update AI feedback setting");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal helpers
+    // -------------------------------------------------------------------------
+    private void ensureUserProfile(Long userId) {
+        userProfileMapper.insertUserProfileIfMissing(userId);
+    }
+
+    private void ensureUserAIFeedbackSetting(Long userId) {
+        userAIFeedbackSettingMapper.insertUserAIFeedbackSettingIfMissing(userId);
     }
 }

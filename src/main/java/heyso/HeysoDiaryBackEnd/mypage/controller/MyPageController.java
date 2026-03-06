@@ -8,11 +8,13 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import heyso.HeysoDiaryBackEnd.mypage.dto.UserProfileResponse;
 import heyso.HeysoDiaryBackEnd.mypage.dto.UserProfileUpdateRequest;
+import heyso.HeysoDiaryBackEnd.mypage.model.UserAIFeedbackSetting;
 import heyso.HeysoDiaryBackEnd.mypage.model.UserThumbnail;
 import heyso.HeysoDiaryBackEnd.mypage.service.MyPageService;
 import jakarta.validation.Valid;
@@ -29,12 +31,17 @@ public class MyPageController {
 
     @GetMapping
     public UserProfileResponse getMyPage() {
-        return myPageService.getMyPage();
+        return myPageService.getProfile();
     }
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> updateMyPage(@Valid @ModelAttribute UserProfileUpdateRequest request) {
-        myPageService.updateMyPage(request);
+    @GetMapping("profile")
+    public UserProfileResponse getProfile() {
+        return myPageService.getProfile();
+    }
+
+    @PostMapping(path = "profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> updateProfile(@Valid @ModelAttribute UserProfileUpdateRequest request) {
+        myPageService.updateProfile(request);
         return ResponseEntity.ok().build();
     }
 
@@ -51,6 +58,17 @@ public class MyPageController {
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(thumbnail.getImageBlob());
+    }
+
+    @GetMapping("ai-feedback-setting")
+    public UserAIFeedbackSetting getAIFeedbackSetting() {
+        return myPageService.getAIFeedbackSetting();
+    }
+
+    @PostMapping("ai-feedback-setting")
+    public ResponseEntity<Void> updateAIFeedbackSetting(@Valid @RequestBody UserAIFeedbackSetting setting) {
+        myPageService.updateAIFeedbackSetting(setting);
+        return ResponseEntity.ok().build();
     }
 
     private MediaType resolveMediaType(String contentType) {

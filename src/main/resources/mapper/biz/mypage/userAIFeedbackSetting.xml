@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.mypage.mapper.UserAIFeedbackSettingMapper">
+
+    <resultMap id="UserAIFeedbackSettingResultMap" type="heyso.HeysoDiaryBackEnd.mypage.model.UserAIFeedbackSetting">
+        <id column="user_id" property="userId"/>
+        <result column="speech_tone_cd" property="speechToneCd"/>
+        <result column="feedback_style_cd" property="feedbackStyleCd"/>
+        <result column="intensity_cd" property="intensityCd"/>
+        <result column="question_cd" property="questionCd"/>
+        <result column="length_cd" property="lengthCd"/>
+        <result column="lang_mode_cd" property="langModeCd"/>
+        <result column="fixed_lang" property="fixedLang"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <insert id="insertUserAIFeedbackSettingIfMissing">
+        INSERT INTO tb_user_ai_feedback_setting (
+            user_id,
+            speech_tone_cd,
+            feedback_style_cd,
+            intensity_cd,
+            question_cd,
+            length_cd,
+            lang_mode_cd,
+            fixed_lang
+        )
+        SELECT
+            u.user_id,
+            'POLITE',
+            'BALANCED',
+            'NORMAL',
+            'ASK',
+            'MEDIUM',
+            'FOLLOW_DIARY',
+            NULL
+        FROM tb_user u
+        LEFT JOIN tb_user_ai_feedback_setting s ON s.user_id = u.user_id
+        WHERE u.user_id = #{userId}
+          AND s.user_id IS NULL
+    </insert>
+
+    <select id="selectUserAIFeedbackSettingByUserId" resultMap="UserAIFeedbackSettingResultMap">
+        SELECT
+            user_id,
+            speech_tone_cd,
+            feedback_style_cd,
+            intensity_cd,
+            question_cd,
+            length_cd,
+            lang_mode_cd,
+            fixed_lang,
+            created_at,
+            updated_at
+        FROM tb_user_ai_feedback_setting
+        WHERE user_id = #{userId}
+    </select>
+
+    <update id="updateUserAIFeedbackSetting" parameterType="heyso.HeysoDiaryBackEnd.mypage.model.UserAIFeedbackSetting">
+        UPDATE tb_user_ai_feedback_setting
+        SET
+            speech_tone_cd = #{speechToneCd},
+            feedback_style_cd = #{feedbackStyleCd},
+            intensity_cd = #{intensityCd},
+            question_cd = #{questionCd},
+            length_cd = #{lengthCd},
+            lang_mode_cd = #{langModeCd},
+            fixed_lang = #{fixedLang},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+</mapper>
