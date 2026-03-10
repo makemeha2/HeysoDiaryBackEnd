@@ -50,7 +50,8 @@ public class SecurityConfig {
 
                                         // ✅ 인증 없이 허용할 엔드포인트
                                         auth.requestMatchers(
-                                                        "/api/auth/**",
+                                                        "/api/auth/oauth/google",
+                                                        "/api/auth/validate",
                                                         "/swagger-ui/**",
                                                         "/v3/api-docs/**").permitAll();
 

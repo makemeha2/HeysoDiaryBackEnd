@@ -69,6 +69,10 @@ public class GoogleOAuthService {
                 profileImgUrl);
     }
 
+    public String extractGoogleSubject(String idTokenString) {
+        return verifyGoogleToken(idTokenString).getSubject();
+    }
+
     private User registerNewGoogleUser(String googleSub, String email, String name) {
         // tb_user insert
         User user = new User();
@@ -90,7 +94,7 @@ public class GoogleOAuthService {
         return user;
     }
 
-    private GoogleIdToken.Payload verifyGoogleToken(String idTokenString) {
+    public GoogleIdToken.Payload verifyGoogleToken(String idTokenString) {
         try {
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
                     new NetHttpTransport(),
