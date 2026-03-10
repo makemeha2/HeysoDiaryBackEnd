@@ -17,10 +17,21 @@ INSERT INTO tb_common_code (
   created_at, created_id, updated_at, updated_id
 )
 SELECT * FROM (
-  SELECT 'AIFB_SPEECH_TONE','POLITE','정중하게',1,NULL,NULL,10,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
+  SELECT
+    'AIFB_SPEECH_TONE' AS group_id,
+    'POLITE' AS code_id,
+    '정중하게' AS code_name,
+    1 AS is_active,
+    NULL AS extra_info1,
+    NULL AS extra_info2,
+    10 AS sort_seq,
+    CURRENT_TIMESTAMP AS created_at,
+    0 AS created_id,
+    CURRENT_TIMESTAMP AS updated_at,
+    0 AS updated_id
   UNION ALL
   SELECT 'AIFB_SPEECH_TONE','CASUAL','편하게',  1,NULL,NULL,20,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
-) v(group_id, code_id, code_name, is_active, extra_info1, extra_info2, sort_seq, created_at, created_id, updated_at, updated_id)
+) v
 WHERE NOT EXISTS (
   SELECT 1 FROM tb_common_code c
   WHERE c.group_id = v.group_id AND c.code_id = v.code_id
@@ -33,12 +44,23 @@ INSERT INTO tb_common_code (
   created_at, created_id, updated_at, updated_id
 )
 SELECT * FROM (
-  SELECT 'AIFB_STYLE','EMPATHY','공감',1,NULL,NULL,10,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
+  SELECT
+    'AIFB_STYLE' AS group_id,
+    'EMPATHY' AS code_id,
+    '공감' AS code_name,
+    1 AS is_active,
+    NULL AS extra_info1,
+    NULL AS extra_info2,
+    10 AS sort_seq,
+    CURRENT_TIMESTAMP AS created_at,
+    0 AS created_id,
+    CURRENT_TIMESTAMP AS updated_at,
+    0 AS updated_id
   UNION ALL
   SELECT 'AIFB_STYLE','BALANCED','균형',1,NULL,NULL,20,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
   UNION ALL
   SELECT 'AIFB_STYLE','SOLUTION','해결',1,NULL,NULL,30,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
-) v(group_id, code_id, code_name, is_active, extra_info1, extra_info2, sort_seq, created_at, created_id, updated_at, updated_id)
+) v
 WHERE NOT EXISTS (
   SELECT 1 FROM tb_common_code c
   WHERE c.group_id = v.group_id AND c.code_id = v.code_id
@@ -51,12 +73,23 @@ INSERT INTO tb_common_code (
   created_at, created_id, updated_at, updated_id
 )
 SELECT * FROM (
-  SELECT 'AIFB_INTENSITY','SOFT','부드럽게',1,NULL,NULL,10,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
+  SELECT
+    'AIFB_INTENSITY' AS group_id,
+    'SOFT' AS code_id,
+    '부드럽게' AS code_name,
+    1 AS is_active,
+    NULL AS extra_info1,
+    NULL AS extra_info2,
+    10 AS sort_seq,
+    CURRENT_TIMESTAMP AS created_at,
+    0 AS created_id,
+    CURRENT_TIMESTAMP AS updated_at,
+    0 AS updated_id
   UNION ALL
   SELECT 'AIFB_INTENSITY','NORMAL','보통',   1,NULL,NULL,20,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
   UNION ALL
   SELECT 'AIFB_INTENSITY','DIRECT','직설적', 1,NULL,NULL,30,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
-) v(group_id, code_id, code_name, is_active, extra_info1, extra_info2, sort_seq, created_at, created_id, updated_at, updated_id)
+) v
 WHERE NOT EXISTS (
   SELECT 1 FROM tb_common_code c
   WHERE c.group_id = v.group_id AND c.code_id = v.code_id
@@ -69,10 +102,21 @@ INSERT INTO tb_common_code (
   created_at, created_id, updated_at, updated_id
 )
 SELECT * FROM (
-  SELECT 'AIFB_QUESTION','NONE','없음',1,NULL,NULL,10,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
+  SELECT
+    'AIFB_QUESTION' AS group_id,
+    'NONE' AS code_id,
+    '없음' AS code_name,
+    1 AS is_active,
+    NULL AS extra_info1,
+    NULL AS extra_info2,
+    10 AS sort_seq,
+    CURRENT_TIMESTAMP AS created_at,
+    0 AS created_id,
+    CURRENT_TIMESTAMP AS updated_at,
+    0 AS updated_id
   UNION ALL
   SELECT 'AIFB_QUESTION','ASK','있음', 1,NULL,NULL,20,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
-) v(group_id, code_id, code_name, is_active, extra_info1, extra_info2, sort_seq, created_at, created_id, updated_at, updated_id)
+) v
 WHERE NOT EXISTS (
   SELECT 1 FROM tb_common_code c
   WHERE c.group_id = v.group_id AND c.code_id = v.code_id
@@ -85,12 +129,23 @@ INSERT INTO tb_common_code (
   created_at, created_id, updated_at, updated_id
 )
 SELECT * FROM (
-  SELECT 'AIFB_LENGTH','SHORT','짧게',  1,NULL,NULL,10,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
+  SELECT
+    'AIFB_LENGTH' AS group_id,
+    'SHORT' AS code_id,
+    '짧게' AS code_name,
+    1 AS is_active,
+    NULL AS extra_info1,
+    NULL AS extra_info2,
+    10 AS sort_seq,
+    CURRENT_TIMESTAMP AS created_at,
+    0 AS created_id,
+    CURRENT_TIMESTAMP AS updated_at,
+    0 AS updated_id
   UNION ALL
   SELECT 'AIFB_LENGTH','MEDIUM','보통', 1,NULL,NULL,20,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
   UNION ALL
   SELECT 'AIFB_LENGTH','LONG','자세히', 1,NULL,NULL,30,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
-) v(group_id, code_id, code_name, is_active, extra_info1, extra_info2, sort_seq, created_at, created_id, updated_at, updated_id)
+) v
 WHERE NOT EXISTS (
   SELECT 1 FROM tb_common_code c
   WHERE c.group_id = v.group_id AND c.code_id = v.code_id
