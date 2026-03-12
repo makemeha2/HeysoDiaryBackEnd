@@ -1,5 +1,5 @@
 package heyso.HeysoDiaryBackEnd.auth.service;
 
-public enum ReauthPurpose {
-    ACCOUNT_DELETE
+public enum ReauthGrantType {
+    EMAIL_OTP
 }

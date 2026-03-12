@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.auth.mapper.EmailReauthMapper">
+
+    <update id="invalidateActiveOtps">
+        UPDATE tb_email_otp
+        SET consumed_at = NOW(),
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND purpose = #{purpose}
+          AND verified_at IS NULL
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+    </update>
+
+    <select id="selectLatestResendCount" resultType="int">
+        SELECT resend_count
+        FROM tb_email_otp
+        WHERE user_id = #{userId}
+          AND purpose = #{purpose}
+        ORDER BY otp_id DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insertEmailOtp" parameterType="heyso.HeysoDiaryBackEnd.auth.model.EmailOtp"
+            useGeneratedKeys="true" keyProperty="otpId">
+        INSERT INTO tb_email_otp (
+            user_id,
+            purpose,
+            email,
+            otp_hash,
+            expires_at,
+            send_status,
+            fail_count,
+            resend_count,
+            last_sent_at,
+            request_ip,
+            request_ua
+        )
+        VALUES (
+            #{userId},
+            #{purpose},
+            #{email},
+            #{otpHash},
+            #{expiresAt},
+            #{sendStatus},
+            #{failCount},
+            #{resendCount},
+            #{lastSentAt},
+            #{requestIp},
+            #{requestUa}
+        )
+    </insert>
+
+    <update id="updateEmailOtpSendStatus">
+        UPDATE tb_email_otp
+        SET send_status = #{sendStatus},
+            updated_at = NOW()
+        WHERE otp_id = #{otpId}
+    </update>
+
+    <select id="selectLatestOtpForVerify" resultType="heyso.HeysoDiaryBackEnd.auth.model.EmailOtp">
+        SELECT
+            otp_id,
+            user_id,
+            purpose,
+            email,
+            otp_hash,
+            expires_at,
+            verified_at,
+            consumed_at,
+            send_status,
+            fail_count,
+            resend_count,
+            last_sent_at,
+            request_ip,
+            request_ua,
+            verify_ip,
+            verify_ua,
+            created_at,
+            updated_at
+        FROM tb_email_otp
+        WHERE user_id = #{userId}
+          AND purpose = #{purpose}
+        ORDER BY otp_id DESC
+        LIMIT 1
+    </select>
+
+    <update id="increaseEmailOtpFailCount">
+        UPDATE tb_email_otp
+        SET fail_count = fail_count + 1,
+            updated_at = NOW()
+        WHERE otp_id = #{otpId}
+    </update>
+
+    <update id="markEmailOtpVerified">
+        UPDATE tb_email_otp
+        SET verified_at = NOW(),
+            verify_ip = #{verifyIp},
+            verify_ua = #{verifyUa},
+            updated_at = NOW()
+        WHERE otp_id = #{otpId}
+          AND verified_at IS NULL
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+    </update>
+
+    <update id="markEmailOtpConsumed">
+        UPDATE tb_email_otp
+        SET consumed_at = NOW(),
+            updated_at = NOW()
+        WHERE otp_id = #{otpId}
+          AND consumed_at IS NULL
+    </update>
+
+    <insert id="insertReauthGrant" parameterType="heyso.HeysoDiaryBackEnd.auth.model.ReauthGrant"
+            useGeneratedKeys="true" keyProperty="grantId">
+        INSERT INTO tb_reauth_grant (
+            user_id,
+            purpose,
+            granted_by_type,
+            source_otp_id,
+            expires_at
+        )
+        VALUES (
+            #{userId},
+            #{purpose},
+            #{grantedByType},
+            #{sourceOtpId},
+            #{expiresAt}
+        )
+    </insert>
+
+    <select id="selectActiveGrant" resultType="heyso.HeysoDiaryBackEnd.auth.model.ReauthGrant">
+        SELECT
+            grant_id,
+            user_id,
+            purpose,
+            granted_by_type,
+            source_otp_id,
+            expires_at,
+            consumed_at,
+            created_at
+        FROM tb_reauth_grant
+        WHERE user_id = #{userId}
+          AND purpose = #{purpose}
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+        ORDER BY grant_id DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectActiveGrantForUpdate" resultType="heyso.HeysoDiaryBackEnd.auth.model.ReauthGrant">
+        SELECT
+            grant_id,
+            user_id,
+            purpose,
+            granted_by_type,
+            source_otp_id,
+            expires_at,
+            consumed_at,
+            created_at
+        FROM tb_reauth_grant
+        WHERE user_id = #{userId}
+          AND purpose = #{purpose}
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+        ORDER BY grant_id DESC
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <update id="consumeReauthGrant">
+        UPDATE tb_reauth_grant
+        SET consumed_at = NOW()
+        WHERE grant_id = #{grantId}
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+    </update>
+</mapper>

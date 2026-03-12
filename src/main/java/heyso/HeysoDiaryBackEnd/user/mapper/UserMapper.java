@@ -26,4 +26,12 @@ public interface UserMapper {
     void insertUserAuth(UserAuth userAuth);
 
     void updateUserAuthLastLoginAt(@Param("userAuthId") Long userAuthId);
+
+    int withdrawUser(
+            @Param("userId") Long userId,
+            @Param("anonymizedEmail") String anonymizedEmail,
+            @Param("withdrawReasonCd") String withdrawReasonCd,
+            @Param("withdrawReasonText") String withdrawReasonText);
+
+    int deleteUserAuthByUserId(@Param("userId") Long userId);
 }
