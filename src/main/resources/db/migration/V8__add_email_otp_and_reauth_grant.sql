@@ -6,7 +6,7 @@
 CREATE TABLE tb_email_otp (
     otp_id            BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT 'OTP PK',
 
-    user_id           BIGINT NOT NULL COMMENT '사용자 ID',
+    user_id           BIGINT UNSIGNED NOT NULL COMMENT '사용자 ID',
     purpose           VARCHAR(50) NOT NULL COMMENT 'OTP 목적 (ACCOUNT_DELETE 등)',
 
     email             VARCHAR(255) NOT NULL COMMENT 'OTP 발송 이메일',
@@ -62,7 +62,7 @@ CREATE INDEX idx_email_otp_expires
 CREATE TABLE tb_reauth_grant (
     grant_id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '재인증 권한 PK',
 
-    user_id           BIGINT NOT NULL COMMENT '사용자 ID',
+    user_id           BIGINT UNSIGNED NOT NULL COMMENT '사용자 ID',
 
     purpose           VARCHAR(50) NOT NULL COMMENT '재인증 목적 (ACCOUNT_DELETE 등)',
 
@@ -83,7 +83,6 @@ CREATE TABLE tb_reauth_grant (
     CONSTRAINT fk_reauth_grant_otp
         FOREIGN KEY (source_otp_id)
         REFERENCES tb_email_otp(otp_id)
-
 ) ENGINE=InnoDB COMMENT='민감 작업 수행을 위한 재인증 권한 관리';
 
 

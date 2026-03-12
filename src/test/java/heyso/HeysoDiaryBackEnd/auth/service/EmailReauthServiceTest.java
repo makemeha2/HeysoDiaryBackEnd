@@ -34,10 +34,13 @@ class EmailReauthServiceTest {
 
     @Test
     void getReauthStatus_returnsFalse_whenGrantNotExists() {
+        // given
         when(emailReauthMapper.selectActiveGrant(1L, ReauthPurpose.ACCOUNT_DELETE)).thenReturn(null);
 
+        // when
         ReauthStatusResponse response = emailReauthService.getReauthStatus(1L, ReauthPurpose.ACCOUNT_DELETE);
 
+        // then
         assertThat(response.isVerified()).isFalse();
         assertThat(response.getPurpose()).isEqualTo(ReauthPurpose.ACCOUNT_DELETE.name());
         assertThat(response.getVerifiedUntil()).isNull();
@@ -45,12 +48,15 @@ class EmailReauthServiceTest {
 
     @Test
     void getReauthStatus_returnsTrue_whenGrantExists() {
+        // given
         ReauthGrant grant = new ReauthGrant();
         grant.setExpiresAt(LocalDateTime.now().plusMinutes(3));
         when(emailReauthMapper.selectActiveGrant(1L, ReauthPurpose.ACCOUNT_DELETE)).thenReturn(grant);
 
+        // when
         ReauthStatusResponse response = emailReauthService.getReauthStatus(1L, ReauthPurpose.ACCOUNT_DELETE);
 
+        // then
         assertThat(response.isVerified()).isTrue();
         assertThat(response.getVerifiedUntil()).isNotNull();
     }
