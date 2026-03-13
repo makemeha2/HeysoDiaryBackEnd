@@ -5,14 +5,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Duration;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.junit.jupiter.api.Assumptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.util.StringUtils;
 
 import com.azure.communication.email.EmailClient;
 import com.azure.communication.email.models.EmailMessage;
@@ -29,14 +31,11 @@ import lombok.extern.slf4j.Slf4j;
         LoggingEmailSender.class
 })
 @ActiveProfiles("local")
-@EnabledIfSystemProperty(named = "run.azure.email.test", matches = "true")
-@EnabledIfEnvironmentVariable(named = "AZURE_EMAIL_CONNECTION_STRING", matches = ".+")
-@EnabledIfEnvironmentVariable(named = "AZURE_EMAIL_SENDER_ADDRESS", matches = ".+")
 class AzureEmailIntegrationTest {
 
     private static final String TEST_RECIPIENT = "makemeha2@gmail.com";
 
-    @Autowired
+    @Autowired(required = false)
     private EmailClient emailClient;
 
     @Autowired
@@ -44,6 +43,19 @@ class AzureEmailIntegrationTest {
 
     @Value("${azure.communication.email.sender-address}")
     private String senderAddress;
+
+    @Value("${azure.communication.email.connection-string:}")
+    private String connectionString;
+
+    @BeforeEach
+    void skipIfAzureEmailNotConfigured() {
+        log.info("senderAddress={}", senderAddress);
+        log.info("connectionString exists={}", StringUtils.hasText(connectionString));
+
+        Assumptions.assumeTrue(
+                StringUtils.hasText(connectionString),
+                "azure.communication.email.connection-string is blank");
+    }
 
     @Test
     @Timeout(30)
@@ -56,6 +68,8 @@ class AzureEmailIntegrationTest {
     @Test
     @Timeout(120)
     void sendMail_directlyViaAzureClient_andCheckCompletion() {
+        Assumptions.assumeTrue(emailClient != null, "EmailClient bean is not created");
+
         String subject = "[Heyso Diary] Azure Email Integration Test " + System.currentTimeMillis();
         String body = "Integration test mail. OTP sample: 1234";
 
