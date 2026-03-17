@@ -26,14 +26,13 @@ public class LoggingEmailSender implements EmailSender {
     }
 
     @Override
-    public void sendEmail(String toEmail, String subject, String htmlBody, String textBody) {
+    public void sendEmail(String toEmail, String subject, String htmlBody) {
         if (emailClient.isEmpty() || !StringUtils.hasText(senderAddress)) {
             log.info(
-                    "EmailSender fallback logging only. to={}, subject={}, htmlLength={}, textLength={}",
+                    "EmailSender fallback logging only. to={}, subject={}, htmlLength={}",
                     maskEmail(toEmail),
                     subject,
-                    safeLength(htmlBody),
-                    safeLength(textBody));
+                    safeLength(htmlBody));
             return;
         }
 
@@ -45,9 +44,6 @@ public class LoggingEmailSender implements EmailSender {
 
             if (StringUtils.hasText(htmlBody)) {
                 message.setBodyHtml(htmlBody);
-            }
-            if (StringUtils.hasText(textBody)) {
-                message.setBodyPlainText(textBody);
             }
 
             emailClient.get().beginSend(message);

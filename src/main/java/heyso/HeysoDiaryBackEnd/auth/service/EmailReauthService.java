@@ -71,7 +71,7 @@ public class EmailReauthService {
 
         try {
             EmailTemplate template = emailTemplateService.createAccountDeleteOtpTemplate(otp, OTP_TTL);
-            emailSender.sendEmail(user.getEmail(), template.subject(), template.htmlBody(), template.textBody());
+            emailSender.sendEmail(user.getEmail(), template.subject(), template.htmlBody());
             emailReauthMapper.updateEmailOtpSendStatus(emailOtp.getOtpId(), EmailOtpSendStatus.SENT);
         } catch (RuntimeException ex) {
             emailReauthMapper.updateEmailOtpSendStatus(emailOtp.getOtpId(), EmailOtpSendStatus.FAILED);
