@@ -23,6 +23,9 @@ import com.azure.core.util.polling.LongRunningOperationStatus;
 import com.azure.core.util.polling.PollResponse;
 import com.azure.core.util.polling.SyncPoller;
 
+import heyso.HeysoDiaryBackEnd.mail.config.EmailConfiguration;
+import heyso.HeysoDiaryBackEnd.mail.sender.EmailSender;
+import heyso.HeysoDiaryBackEnd.mail.sender.LoggingEmailSender;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -62,7 +65,11 @@ class AzureEmailIntegrationTest {
     void sendOtpEmail_viaEmailSender() {
         String otpCode = String.format("%04d", Math.abs(UUID.randomUUID().hashCode()) % 10_000);
         log.info("Sending OTP email via EmailSender to {}", TEST_RECIPIENT);
-        emailSender.sendAccountDeleteOtp(TEST_RECIPIENT, otpCode);
+        emailSender.sendEmail(
+                TEST_RECIPIENT,
+                "[Heyso Diary] Account Deletion OTP",
+                "<p>Your OTP code is: <strong>" + otpCode + "</strong></p><p>This code expires in 10 minutes.</p>",
+                "Your OTP code is: " + otpCode + "\nThis code expires in 10 minutes.");
     }
 
     @Test

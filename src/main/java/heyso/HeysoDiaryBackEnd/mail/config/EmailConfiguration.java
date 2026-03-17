@@ -1,4 +1,4 @@
-package heyso.HeysoDiaryBackEnd.auth.service.email;
+package heyso.HeysoDiaryBackEnd.mail.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;

@@ -14,7 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import heyso.HeysoDiaryBackEnd.auth.dto.ReauthStatusResponse;
 import heyso.HeysoDiaryBackEnd.auth.mapper.EmailReauthMapper;
 import heyso.HeysoDiaryBackEnd.auth.model.ReauthGrant;
-import heyso.HeysoDiaryBackEnd.auth.service.email.EmailSender;
+import heyso.HeysoDiaryBackEnd.mail.sender.EmailSender;
 import heyso.HeysoDiaryBackEnd.user.mapper.UserMapper;
 
 @ExtendWith(MockitoExtension.class)

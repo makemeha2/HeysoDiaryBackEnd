@@ -20,7 +20,9 @@ import heyso.HeysoDiaryBackEnd.auth.dto.ReauthVerifyResponse;
 import heyso.HeysoDiaryBackEnd.auth.mapper.EmailReauthMapper;
 import heyso.HeysoDiaryBackEnd.auth.model.EmailOtp;
 import heyso.HeysoDiaryBackEnd.auth.model.ReauthGrant;
-import heyso.HeysoDiaryBackEnd.auth.service.email.EmailSender;
+import heyso.HeysoDiaryBackEnd.mail.sender.EmailSender;
+import heyso.HeysoDiaryBackEnd.mail.template.EmailTemplate;
+import heyso.HeysoDiaryBackEnd.mail.template.EmailTemplateService;
 import heyso.HeysoDiaryBackEnd.user.mapper.UserMapper;
 import heyso.HeysoDiaryBackEnd.user.model.User;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,7 @@ public class EmailReauthService {
     private final EmailReauthMapper emailReauthMapper;
     private final UserMapper userMapper;
     private final EmailSender emailSender;
+    private final EmailTemplateService emailTemplateService;
     private final PasswordEncoder otpPasswordEncoder = new BCryptPasswordEncoder();
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -67,7 +70,8 @@ public class EmailReauthService {
         emailReauthMapper.insertEmailOtp(emailOtp);
 
         try {
-            emailSender.sendAccountDeleteOtp(user.getEmail(), otp);
+            EmailTemplate template = emailTemplateService.createAccountDeleteOtpTemplate(otp, OTP_TTL);
+            emailSender.sendEmail(user.getEmail(), template.subject(), template.htmlBody(), template.textBody());
             emailReauthMapper.updateEmailOtpSendStatus(emailOtp.getOtpId(), EmailOtpSendStatus.SENT);
         } catch (RuntimeException ex) {
             emailReauthMapper.updateEmailOtpSendStatus(emailOtp.getOtpId(), EmailOtpSendStatus.FAILED);

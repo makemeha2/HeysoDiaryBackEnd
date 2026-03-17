@@ -50,7 +50,7 @@ logging:
     "[org.springframework.boot.autoconfigure.web.servlet.error]": DEBUG
     # org.springframework.web.multipart: DEBUG  # 파일 업로드 과정에서 발생하는 상세한 활동이나 문제점들을 추적
     # org.springframework.http.converter: DEBUG # 응답의 parameter가 직렬화 되는 과정을 로그로 볼때
-    "[heyso.HeysoDiaryBackEnd.auth.service.email]": DEBUG
+    "[heyso.HeysoDiaryBackEnd.mail.sender]": DEBUG
     "[com.azure]": INFO
     "[com.azure.core]": INFO
     
@@ -62,5 +62,5 @@ app:
 azure:
   communication:
     email:
-      connection-string: ${AZURE_COMMUNICATION_EMAIL_CONNECTION_STRING}
+      connection-string: ${AZURE_COMMUNICATION_EMAIL_CONNECTION_STRING:}
       sender-address: DoNotReply@heyso-diary.com
