@@ -54,3 +54,9 @@ app:
 feature:
   comCdAdmin:
     enabled: false
+
+azure:
+  communication:
+    email:
+      connection-string: ${AZURE_COMMUNICATION_EMAIL_CONNECTION_STRING:}
+      sender-address: DoNotReply@heyso-diary.com
