@@ -58,6 +58,11 @@ public class SecurityConfig {
                                                         "/api/auth/validate",
                                                         "/swagger-ui/**",
                                                         "/v3/api-docs/**").permitAll();
+                                        auth.requestMatchers(
+                                                        "/actuator/health",
+                                                        "/actuator/health/**",
+                                                        "/actuator/info")
+                                                        .permitAll();
 
                                         // ✅ 사용자 정의 엔드포인트 규칙
                                         endpointSecurities.forEach(es -> es.configure(auth));
