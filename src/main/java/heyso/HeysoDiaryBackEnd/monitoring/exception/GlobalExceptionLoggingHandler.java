@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -26,6 +27,18 @@ public class GlobalExceptionLoggingHandler {
     // {
     // throw exception;
     // }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFoundException(
+            NoResourceFoundException exception,
+            HttpServletRequest request) {
+        log.warn("No handler/static resource found. method={}, uri={}", request.getMethod(), request.getRequestURI());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", HttpStatus.NOT_FOUND.value());
+        response.put("message", "Resource not found");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleException(Exception exception, HttpServletRequest request) {
