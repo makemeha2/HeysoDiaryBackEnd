@@ -2,6 +2,8 @@ package heyso.HeysoDiaryBackEnd.config;
 
 import heyso.HeysoDiaryBackEnd.auth.jwt.JwtAuthenticationFilter;
 import heyso.HeysoDiaryBackEnd.auth.jwt.JwtTokenProvider;
+import heyso.HeysoDiaryBackEnd.security.MonitoringAccessDeniedHandler;
+import heyso.HeysoDiaryBackEnd.security.MonitoringAuthenticationEntryPoint;
 import heyso.HeysoDiaryBackEnd.user.mapper.UserMapper;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,8 @@ public class SecurityConfig {
         private final JwtTokenProvider jwtTokenProvider;
         private final UserMapper userMapper;
         private final List<EndpointSecurity> endpointSecurities;
+        private final MonitoringAuthenticationEntryPoint monitoringAuthenticationEntryPoint;
+        private final MonitoringAccessDeniedHandler monitoringAccessDeniedHandler;
 
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -64,6 +68,9 @@ public class SecurityConfig {
                                         // ✅ 그 외도 인증 필요 (원하면 permitAll로 바꿔도 됨)
                                         auth.anyRequest().authenticated();
                                 })
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint(monitoringAuthenticationEntryPoint)
+                                                .accessDeniedHandler(monitoringAccessDeniedHandler))
                                 // ✅ JWT 기반 API라면 basic/form 로그인은 보통 끄는 게 깔끔함
                                 .httpBasic(httpBasic -> httpBasic.disable())
                                 .formLogin(form -> form.disable());

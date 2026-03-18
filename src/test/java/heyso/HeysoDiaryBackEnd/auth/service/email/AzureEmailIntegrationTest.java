@@ -8,7 +8,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.Assumptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -68,8 +67,7 @@ class AzureEmailIntegrationTest {
         emailSender.sendEmail(
                 TEST_RECIPIENT,
                 "[Heyso Diary] Account Deletion OTP",
-                "<p>Your OTP code is: <strong>" + otpCode + "</strong></p><p>This code expires in 10 minutes.</p>",
-                "Your OTP code is: " + otpCode + "\nThis code expires in 10 minutes.");
+                "<p>Your OTP code is: <strong>" + otpCode + "</strong></p><p>This code expires in 10 minutes.</p>");
     }
 
     @Test

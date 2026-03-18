@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.monitoring.mapper.MonitoringEventMapper">
+
+    <insert id="insertMonitoringEvent"
+            parameterType="heyso.HeysoDiaryBackEnd.monitoring.model.MonitoringEvent"
+            useGeneratedKeys="true"
+            keyProperty="eventId">
+        INSERT INTO tb_monitoring_event (
+            event_type,
+            event_code,
+            severity,
+            title,
+            message,
+            detail_json,
+            http_method,
+            request_uri,
+            query_string,
+            client_ip,
+            user_agent,
+            user_id,
+            user_role,
+            trace_id,
+            session_id,
+            exception_class,
+            exception_message,
+            stack_trace,
+            source_class,
+            source_method,
+            resolved_yn,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{eventType},
+            #{eventCode},
+            #{severity},
+            #{title},
+            #{message},
+            #{detailJson},
+            #{httpMethod},
+            #{requestUri},
+            #{queryString},
+            #{clientIp},
+            #{userAgent},
+            #{userId},
+            #{userRole},
+            #{traceId},
+            #{sessionId},
+            #{exceptionClass},
+            #{exceptionMessage},
+            #{stackTrace},
+            #{sourceClass},
+            #{sourceMethod},
+            #{resolvedYn},
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+</mapper>
