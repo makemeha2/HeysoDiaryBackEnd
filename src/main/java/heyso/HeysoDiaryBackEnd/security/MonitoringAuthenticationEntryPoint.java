@@ -32,29 +32,40 @@ public class MonitoringAuthenticationEntryPoint implements AuthenticationEntryPo
             HttpServletResponse response,
             AuthenticationException authException) throws IOException {
 
-        try {
-            monitoringEventService.logEvent(
-                    MonitoringEventCreateCommand.builder()
-                            .eventType(MonitoringEventType.SECURITY)
-                            .eventCode(MonitoringEventCode.SEC_INVALID_TOKEN.name())
-                            .severity(MonitoringSeverity.HIGH)
-                            .title("Authentication failure")
-                            .message("Authentication failed while accessing protected resource")
-                            .detailJson(MonitoringSecurityJsonUtil.buildDetailJson(
-                                    request,
-                                    "reason",
-                                    "authentication_failed"))
-                            .sourceClass(getClass().getSimpleName())
-                            .sourceMethod("commence")
-                            .build(),
-                    request);
-        } catch (Exception e) {
-            log.error("Failed to write authentication monitoring event", e);
+        if (!shouldSkipMonitoringLog(request)) {
+            try {
+                monitoringEventService.logEvent(
+                        MonitoringEventCreateCommand.builder()
+                                .eventType(MonitoringEventType.SECURITY)
+                                .eventCode(MonitoringEventCode.SEC_INVALID_TOKEN.name())
+                                .severity(MonitoringSeverity.HIGH)
+                                .title("Authentication failure")
+                                .message("Authentication failed while accessing protected resource")
+                                .detailJson(MonitoringSecurityJsonUtil.buildDetailJson(
+                                        request,
+                                        "reason",
+                                        "authentication_failed"))
+                                .sourceClass(getClass().getSimpleName())
+                                .sourceMethod("commence")
+                                .build(),
+                        request);
+            } catch (Exception e) {
+                log.error("Failed to write authentication monitoring event", e);
+            }
         }
 
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter().write("{\"status\":401,\"message\":\"Unauthorized\"}");
+    }
+
+    private boolean shouldSkipMonitoringLog(HttpServletRequest request) {
+        if (request == null) {
+            return false;
+        }
+
+        String uri = request.getRequestURI();
+        return uri != null && ("/actuator/health".equals(uri) || uri.startsWith("/actuator/health/"));
     }
 }
