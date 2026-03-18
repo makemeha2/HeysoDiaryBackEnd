@@ -19,7 +19,19 @@ public interface UserMapper {
             @Param("authProvider") String authProvider,
             @Param("providerUserId") String providerUserId);
 
+    UserAuth selectUserAuthByUserIdAndProvider(
+            @Param("userId") Long userId,
+            @Param("authProvider") String authProvider);
+
     void insertUserAuth(UserAuth userAuth);
 
     void updateUserAuthLastLoginAt(@Param("userAuthId") Long userAuthId);
+
+    int withdrawUser(
+            @Param("userId") Long userId,
+            @Param("anonymizedEmail") String anonymizedEmail,
+            @Param("withdrawReasonCd") String withdrawReasonCd,
+            @Param("withdrawReasonText") String withdrawReasonText);
+
+    int deleteUserAuthByUserId(@Param("userId") Long userId);
 }

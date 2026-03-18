@@ -64,6 +64,23 @@
           AND provider_user_id = #{providerUserId}
     </select>
 
+    <select id="selectUserAuthByUserIdAndProvider"
+            resultType="heyso.HeysoDiaryBackEnd.user.model.UserAuth">
+        SELECT
+            user_auth_id,
+            user_id,
+            auth_provider,
+            provider_user_id,
+            login_id,
+            password_hash,
+            last_login_at,
+            created_at,
+            updated_at
+        FROM tb_user_auth
+        WHERE user_id = #{userId}
+          AND auth_provider = #{authProvider}
+    </select>
+
     <insert id="insertUserAuth" parameterType="heyso.HeysoDiaryBackEnd.user.model.UserAuth"
             useGeneratedKeys="true" keyProperty="userAuthId">
         INSERT INTO tb_user_auth (
@@ -94,5 +111,23 @@
             updated_at    = NOW()
         WHERE user_auth_id = #{userAuthId}
     </update>
+
+    <update id="withdrawUser">
+        UPDATE tb_user
+        SET email = #{anonymizedEmail},
+            nickname = 'withdrawn_user',
+            status = 'WITHDRAWN',
+            withdrawn_at = NOW(),
+            withdraw_reason_cd = #{withdrawReasonCd},
+            withdraw_reason_text = #{withdrawReasonText},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <delete id="deleteUserAuthByUserId">
+        DELETE FROM tb_user_auth
+        WHERE user_id = #{userId}
+    </delete>
 
 </mapper>
