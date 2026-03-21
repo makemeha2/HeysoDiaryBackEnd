@@ -13,6 +13,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -63,6 +64,7 @@ class DiaryAiPolishServiceTest {
     }
 
     @Test
+    @DisplayName("글다듬기 요청 시 50자 미만 입력이면 실패한다")
     void requestPolish_fails_whenContentIsShorterThan50Chars() {
         DiaryAiPolishRequest request = request(10L, "a".repeat(49));
 
@@ -73,6 +75,7 @@ class DiaryAiPolishServiceTest {
     }
 
     @Test
+    @DisplayName("글다듬기 요청 시 2000자를 초과하면 실패한다")
     void requestPolish_fails_whenContentExceeds2000Chars() {
         DiaryAiPolishRequest request = request(10L, "a".repeat(2001));
 
@@ -83,6 +86,7 @@ class DiaryAiPolishServiceTest {
     }
 
     @Test
+    @DisplayName("글다듬기 요청 시 하루 제한을 초과하면 실패 로그만 남긴다")
     void requestPolish_fails_whenDailyLimitExceeded_andKeepsFailureLog() {
         when(diaryMapper.selectDiaryById(10L)).thenReturn(ownedDiary(10L, 1L));
         when(persistenceService.createRequestLog(1L, 10L, 60)).thenReturn(101L);
@@ -102,6 +106,7 @@ class DiaryAiPolishServiceTest {
     }
 
     @Test
+    @DisplayName("글다듬기 요청 시 AI 호출에 실패하면 사용량을 복구한다")
     void requestPolish_releasesUsage_whenAiCallFails() {
         DiaryAiPolishDailyUsage usage = usage(3, 1);
         when(diaryMapper.selectDiaryById(10L)).thenReturn(ownedDiary(10L, 1L));
@@ -123,6 +128,7 @@ class DiaryAiPolishServiceTest {
     }
 
     @Test
+    @DisplayName("글다듬기 요청 성공 시 로그와 결과를 저장하고 남은 횟수를 반환한다")
     void requestPolish_savesLogAndResult_onSuccess_andUsesQuotaLimitForRemainingCount() {
         DiaryAiPolishDailyUsage usage = usage(5, 2);
         DiaryAiPolishResult result = new DiaryAiPolishResult();
@@ -150,6 +156,7 @@ class DiaryAiPolishServiceTest {
     }
 
     @Test
+    @DisplayName("글다듬기 요청 시 diaryId 소유자가 다르면 접근을 거부한다")
     void requestPolish_forbidsAccess_whenDiaryOwnerDoesNotMatch() {
         DiarySummary diary = new DiarySummary();
         diary.setDiaryId(10L);
