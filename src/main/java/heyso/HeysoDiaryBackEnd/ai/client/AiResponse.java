@@ -1,7 +1,9 @@
-package heyso.HeysoDiaryBackEnd.aichat.openai;
+package heyso.HeysoDiaryBackEnd.ai.client;
 
-public record AiCallResult(
+public record AiResponse(
         String content,
+        AiProvider provider,
+        String model,
         String requestId,
         Integer promptTokens,
         Integer completionTokens,

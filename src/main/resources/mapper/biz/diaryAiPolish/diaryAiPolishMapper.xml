@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.diaryAiPolish.mapper.DiaryAiPolishMapper">
+
+    <resultMap id="DiaryAiPolishDailyUsageResultMap"
+               type="heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishDailyUsage">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="usage_date" jdbcType="DATE" property="usageDate"/>
+        <result column="quota_limit" property="quotaLimit"/>
+        <result column="used_count" property="usedCount"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <resultMap id="DiaryAiPolishLogResultMap"
+               type="heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishLog">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="diary_id" property="diaryId"/>
+        <result column="request_text_length" property="requestTextLength"/>
+        <result column="request_status" property="requestStatus"/>
+        <result column="fail_reason_code" property="failReasonCode"/>
+        <result column="used_quota_yn" property="usedQuotaYn"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="completed_at" jdbcType="TIMESTAMP" property="completedAt"/>
+    </resultMap>
+
+    <resultMap id="DiaryAiPolishResultResultMap"
+               type="heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishResult">
+        <id column="id" property="id"/>
+        <result column="polish_log_id" property="polishLogId"/>
+        <result column="user_id" property="userId"/>
+        <result column="diary_id" property="diaryId"/>
+        <result column="original_content" property="originalContent"/>
+        <result column="polished_content" property="polishedContent"/>
+        <result column="applied_yn" property="appliedYn"/>
+        <result column="saved_yn" property="savedYn"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="applied_at" jdbcType="TIMESTAMP" property="appliedAt"/>
+        <result column="saved_at" jdbcType="TIMESTAMP" property="savedAt"/>
+    </resultMap>
+
+    <insert id="insertDailyUsageIfAbsent">
+        INSERT IGNORE INTO tb_diary_ai_polish_daily_usage (
+            user_id,
+            usage_date,
+            quota_limit,
+            used_count,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{userId},
+            #{usageDate},
+            #{quotaLimit},
+            0,
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <select id="selectDailyUsage" resultMap="DiaryAiPolishDailyUsageResultMap">
+        SELECT
+            id,
+            user_id,
+            usage_date,
+            quota_limit,
+            used_count,
+            created_at,
+            updated_at
+        FROM tb_diary_ai_polish_daily_usage
+        WHERE user_id = #{userId}
+          AND usage_date = #{usageDate}
+    </select>
+
+    <update id="incrementUsageIfAvailable">
+        UPDATE tb_diary_ai_polish_daily_usage
+        SET
+            used_count = used_count + 1,
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND usage_date = #{usageDate}
+          AND used_count &lt; #{quotaLimit}
+    </update>
+
+    <update id="decrementUsage">
+        UPDATE tb_diary_ai_polish_daily_usage
+        SET
+            used_count = CASE
+                WHEN used_count &gt; 0 THEN used_count - 1
+                ELSE 0
+            END,
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND usage_date = #{usageDate}
+    </update>
+
+    <insert id="insertPolishLog"
+            parameterType="heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishLog"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO tb_diary_ai_polish_log (
+            user_id,
+            diary_id,
+            request_text_length,
+            request_status,
+            fail_reason_code,
+            used_quota_yn,
+            created_at,
+            completed_at
+        )
+        VALUES (
+            #{userId},
+            #{diaryId},
+            #{requestTextLength},
+            #{requestStatus},
+            #{failReasonCode},
+            #{usedQuotaYn},
+            NOW(),
+            #{completedAt}
+        )
+    </insert>
+
+    <update id="updatePolishLogSuccess">
+        UPDATE tb_diary_ai_polish_log
+        SET
+            request_status = 'SUCCESS',
+            used_quota_yn = 'Y',
+            completed_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updatePolishLogFailure">
+        UPDATE tb_diary_ai_polish_log
+        SET
+            request_status = 'FAILED',
+            fail_reason_code = #{failReasonCode},
+            used_quota_yn = 'N',
+            completed_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <insert id="insertPolishResult"
+            parameterType="heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishResult"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO tb_diary_ai_polish_result (
+            polish_log_id,
+            user_id,
+            diary_id,
+            original_content,
+            polished_content,
+            applied_yn,
+            saved_yn,
+            created_at,
+            applied_at,
+            saved_at
+        )
+        VALUES (
+            #{polishLogId},
+            #{userId},
+            #{diaryId},
+            #{originalContent},
+            #{polishedContent},
+            #{appliedYn},
+            #{savedYn},
+            NOW(),
+            #{appliedAt},
+            #{savedAt}
+        )
+    </insert>
+</mapper>

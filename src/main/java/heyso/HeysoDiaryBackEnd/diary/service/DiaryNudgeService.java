@@ -7,12 +7,14 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.ai.chat.client.ChatClient.CallResponseSpec;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient;
-import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient.RoleMessage;
+import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
+import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
+import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
+import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryNudgeResponse;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.Diary;
@@ -38,7 +40,7 @@ public class DiaryNudgeService {
             """;
 
     private final DiaryMapper diaryMapper;
-    private final OpenAiClient openAiClient;
+    private final AiCallExecutor aiCallExecutor;
 
     @Async("nudgeExecutor")
     public CompletableFuture<DiaryNudgeResponse> createTodayNudgeAsync(Long userId) {
@@ -67,23 +69,22 @@ public class DiaryNudgeService {
     private String callNudgeModel(Diary diary) {
         String promptUser = buildUserPrompt(diary);
 
-        List<RoleMessage> messages = new ArrayList<>();
-        messages.add(new RoleMessage("developer", NUDGE_SYSTEM_PROMPT));
-        messages.add(new RoleMessage("user", promptUser));
+        List<AiMessage> messages = new ArrayList<>();
+        messages.add(new AiMessage("developer", NUDGE_SYSTEM_PROMPT));
+        messages.add(new AiMessage("user", promptUser));
 
-        CallResponseSpec responseSpec;
+        AiResponse response;
         try {
-            responseSpec = openAiClient.createResponseSpec(
-                    DEFAULT_MODEL,
-                    messages,
-                    null,
-                    null,
-                    null);
+            response = aiCallExecutor.call(AiRequest.builder()
+                    .provider(AiProvider.OPENAI)
+                    .model(DEFAULT_MODEL)
+                    .messages(messages)
+                    .build());
         } catch (Exception e) {
             return null;
         }
 
-        String content = responseSpec.content();
+        String content = response.content();
         if (StringUtils.isBlank(content)) {
             return null;
         }
