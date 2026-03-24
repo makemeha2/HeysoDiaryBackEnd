@@ -16,10 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallExecutor;
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallOptions;
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallResult;
-import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient.RoleMessage;
+import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
+import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
+import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
+import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
@@ -148,7 +149,7 @@ public class DiaryAiService {
 
         try {
             // 모델 호출 후 결과를 댓글로 저장
-            AiCallResult aiResult = callMentorModel(model, promptSystem, promptUser, request);
+            AiResponse aiResult = callMentorModel(model, promptSystem, promptUser, request);
 
             DiaryAiComment comment = DiaryAiComment.builder()
                     .diaryId(diaryId)
@@ -250,22 +251,26 @@ public class DiaryAiService {
         }
     }
 
-    private AiCallResult callMentorModel(String model,
+    private AiResponse callMentorModel(String model,
             String promptSystem,
             String promptUser,
             DiaryAiCommentCreateRequest request) {
         // 개발자/사용자 메시지로 프롬프트 구성
-        List<RoleMessage> messages = new ArrayList<>();
-        messages.add(new RoleMessage("developer", promptSystem));
-        messages.add(new RoleMessage("user", promptUser));
+        List<AiMessage> messages = new ArrayList<>();
+        messages.add(new AiMessage("developer", promptSystem));
+        messages.add(new AiMessage("user", promptUser));
 
-        AiCallResult result = null;
+        AiResponse result = null;
 
         try {
-            AiCallOptions options = AiCallOptions.of(request.getTemperature(), request.getTopP(),
-                    request.getMaxOutputTokens());
-
-            result = aiCallExecutor.call(model, messages, options);
+            result = aiCallExecutor.call(AiRequest.builder()
+                    .provider(AiProvider.OPENAI)
+                    .model(model)
+                    .messages(messages)
+                    .temperature(request.getTemperature())
+                    .topP(request.getTopP())
+                    .maxTokens(request.getMaxOutputTokens())
+                    .build());
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
         }
@@ -282,7 +287,14 @@ public class DiaryAiService {
         Integer completionTokens = result.completionTokens();
         Integer totalTokens = result.totalTokens();
 
-        return new AiCallResult(content.trim(), requestId, promptTokens, completionTokens, totalTokens);
+        return new AiResponse(
+                content.trim(),
+                AiProvider.OPENAI,
+                model,
+                requestId,
+                promptTokens,
+                completionTokens,
+                totalTokens);
     }
 
     private List<DiaryAiRunContext> buildContexts(List<DiarySummary> recentDiaries,

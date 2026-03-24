@@ -1,8 +1,8 @@
-package heyso.HeysoDiaryBackEnd.aichat.openai;
+package heyso.HeysoDiaryBackEnd.ai.provider.openai;
 
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.ai.chat.client.ChatClient;
 
 @Configuration
 public class OpenAiConfig {

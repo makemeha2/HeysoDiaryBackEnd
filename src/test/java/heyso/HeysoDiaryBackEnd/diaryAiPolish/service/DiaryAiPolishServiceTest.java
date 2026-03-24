@@ -24,7 +24,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallResult;
+import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
+import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.dto.DiaryAiPolishRequest;
@@ -140,7 +141,7 @@ class DiaryAiPolishServiceTest {
         when(persistenceService.createRequestLog(1L, 10L, 60)).thenReturn(103L);
         when(persistenceService.reserveUsage(eq(1L), any(LocalDate.class), eq(3))).thenReturn(usage);
         when(diaryAiPolishAiClient.polish("a".repeat(60)))
-                .thenReturn(new AiCallResult("polished", "req-1", 1, 1, 2));
+                .thenReturn(new AiResponse("polished", AiProvider.OPENAI, "gpt-4o-mini", "req-1", 1, 1, 2));
         when(persistenceService.saveSuccess(103L, 1L, 10L, "a".repeat(60), "polished")).thenReturn(result);
 
         DiaryAiPolishResponse response = diaryAiPolishService.requestPolish(request(10L, "a".repeat(60)));

@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallResult;
+import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
@@ -53,7 +53,7 @@ public class DiaryAiPolishService {
             DiaryAiPolishDailyUsage usage = persistenceService.reserveUsage(user.getUserId(), usageDate, DAILY_LIMIT);
             usageReserved = true;
 
-            AiCallResult aiCallResult = diaryAiPolishAiClient.polish(content);
+            AiResponse aiCallResult = diaryAiPolishAiClient.polish(content);
             DiaryAiPolishResult result = persistenceService.saveSuccess(
                     polishLogId,
                     user.getUserId(),

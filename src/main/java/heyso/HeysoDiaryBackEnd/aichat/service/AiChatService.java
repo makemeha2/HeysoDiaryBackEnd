@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.ai.chat.client.ChatClient.CallResponseSpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -34,11 +33,11 @@ import heyso.HeysoDiaryBackEnd.aichat.model.ChatConversation;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatConversationSummary;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatMessage;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatUsageLog;
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallExecutor;
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallOptions;
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallResult;
-import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient;
-import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient.RoleMessage;
+import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
+import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
+import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
+import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.user.model.User;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +46,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AiChatService {
     private final AiChatMapper aiChatMapper;
-    private final OpenAiClient openAiClient;
     private final AiChatDtoMapper dtoMapper;
     private final AiCallExecutor aiCallExecutor;
 
@@ -247,15 +245,15 @@ public class AiChatService {
         // - developer: conversation.systemPrompt
         // - developer: summary(있으면)
         // - messages: 최근 N개 메시지(최신->역순 정렬해서 시간순으로)
-        List<RoleMessage> input = new ArrayList<>();
+        List<AiMessage> input = new ArrayList<>();
 
         if (conversation.getSystemPrompt() != null && !conversation.getSystemPrompt().isBlank()) {
-            input.add(new RoleMessage("developer", conversation.getSystemPrompt()));
+            input.add(new AiMessage("developer", conversation.getSystemPrompt()));
         }
 
         ChatConversationSummary summary = aiChatMapper.selectSummaryByUser(user.getUserId(), conversationId);
         if (summary != null && summary.getSummary() != null && !summary.getSummary().isBlank()) {
-            input.add(new RoleMessage("developer", summaryPrefix + summary.getSummary()));
+            input.add(new AiMessage("developer", summaryPrefix + summary.getSummary()));
         }
 
         List<ChatMessage> recentDesc = aiChatMapper.selectRecentMessages(conversationId, contextMessageLimit);
@@ -267,7 +265,7 @@ public class AiChatService {
                 continue;
 
             // 방금 저장한 USER 메시지도 포함되도록 recentDesc에 들어있음
-            input.add(new RoleMessage(role, m.getContent()));
+            input.add(new AiMessage(role, m.getContent()));
         }
 
         // 3) OpenAI 호출
@@ -275,9 +273,13 @@ public class AiChatService {
                 ? "gpt-4o-mini"
                 : conversation.getModel();
 
-        AiCallResult result = null;
+        AiResponse result = null;
         try {
-            result = aiCallExecutor.call(model, input, AiCallOptions.empty());
+            result = aiCallExecutor.call(AiRequest.builder()
+                    .provider(AiProvider.OPENAI)
+                    .model(model)
+                    .messages(input)
+                    .build());
         } catch (Exception e) {
             // OpenAI 장애/네트워크 오류 시: USER 메시지는 남아있고 ASSISTANT는 없을 수 있음
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
@@ -363,24 +365,27 @@ public class AiChatService {
                 Return ONLY the summary text.
                 """;
 
-        List<OpenAiClient.RoleMessage> input = new ArrayList<>();
-        input.add(new OpenAiClient.RoleMessage("developer", summarizerInstruction));
+        List<AiMessage> input = new ArrayList<>();
+        input.add(new AiMessage("developer", summarizerInstruction));
 
         if (!prevSummary.isBlank()) {
-            input.add(new OpenAiClient.RoleMessage("user", "Previous summary:\n" + prevSummary));
+            input.add(new AiMessage("user", "Previous summary:\n" + prevSummary));
         }
-        input.add(new OpenAiClient.RoleMessage("user", "New messages since last summary:\n" + transcript));
+        input.add(new AiMessage("user", "New messages since last summary:\n" + transcript));
 
-        CallResponseSpec updatedSummarySpec;
+        AiResponse updatedSummaryResponse;
         try {
-            updatedSummarySpec = openAiClient.createResponseSpec("gpt-4o-2024-08-06", input);
+            updatedSummaryResponse = aiCallExecutor.call(AiRequest.builder()
+                    .provider(AiProvider.OPENAI)
+                    .model("gpt-4o-2024-08-06")
+                    .messages(input)
+                    .build());
         } catch (Exception e) {
             // OpenAI 장애/네트워크 오류 시: USER 메시지는 남아있고 ASSISTANT는 없을 수 있음
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
         }
 
-        // ChatResponse chatResponse = updatedSummarySpec.chatResponse();
-        String updatedSummary = updatedSummarySpec.content();
+        String updatedSummary = updatedSummaryResponse.content();
 
         ChatConversationSummary upsert = ChatConversationSummary.builder()
                 .conversationId(conversationId)

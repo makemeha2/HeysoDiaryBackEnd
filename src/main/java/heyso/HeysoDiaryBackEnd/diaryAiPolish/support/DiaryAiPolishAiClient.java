@@ -7,10 +7,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallExecutor;
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallOptions;
-import heyso.HeysoDiaryBackEnd.aichat.openai.AiCallResult;
-import heyso.HeysoDiaryBackEnd.aichat.openai.OpenAiClient.RoleMessage;
+import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
+import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
+import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
+import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -23,24 +24,29 @@ public class DiaryAiPolishAiClient {
     private final AiCallExecutor aiCallExecutor;
     private final DiaryAiPolishPromptFactory promptFactory;
 
-    public AiCallResult polish(String originalContent) {
-        List<RoleMessage> messages = List.of(
-                new RoleMessage("system", promptFactory.buildSystemPrompt()),
-                new RoleMessage("user", promptFactory.buildUserPrompt(originalContent)));
+    public AiResponse polish(String originalContent) {
+        List<AiMessage> messages = List.of(
+                new AiMessage("system", promptFactory.buildSystemPrompt()),
+                new AiMessage("user", promptFactory.buildUserPrompt(originalContent)));
 
         try {
-            AiCallResult result = aiCallExecutor.call(
-                    DEFAULT_MODEL,
-                    messages,
-                    AiCallOptions.of(0.2, null, MAX_OUTPUT_TOKENS));
+            AiResponse result = aiCallExecutor.call(AiRequest.builder()
+                    .provider(AiProvider.OPENAI)
+                    .model(DEFAULT_MODEL)
+                    .messages(messages)
+                    .temperature(0.2)
+                    .maxTokens(MAX_OUTPUT_TOKENS)
+                    .build());
 
             String polished = sanitizeResponse(result.content());
             if (StringUtils.isBlank(polished)) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI returned empty polished content");
             }
 
-            return new AiCallResult(
+            return new AiResponse(
                     polished,
+                    result.provider(),
+                    result.model(),
                     result.requestId(),
                     result.promptTokens(),
                     result.completionTokens(),
