@@ -64,6 +64,23 @@
           AND provider_user_id = #{providerUserId}
     </select>
 
+    <select id="selectUserAuthByLoginIdAndProvider"
+            resultType="heyso.HeysoDiaryBackEnd.user.model.UserAuth">
+        SELECT
+            user_auth_id,
+            user_id,
+            auth_provider,
+            provider_user_id,
+            login_id,
+            password_hash,
+            last_login_at,
+            created_at,
+            updated_at
+        FROM tb_user_auth
+        WHERE login_id = #{loginId}
+          AND auth_provider = #{authProvider}
+    </select>
+
     <select id="selectUserAuthByUserIdAndProvider"
             resultType="heyso.HeysoDiaryBackEnd.user.model.UserAuth">
         SELECT

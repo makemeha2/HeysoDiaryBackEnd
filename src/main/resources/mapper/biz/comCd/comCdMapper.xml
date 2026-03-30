@@ -40,6 +40,9 @@
             updated_at,
             updated_id
         FROM tb_common_code_group
+        <if test="isActiveFilter != null">
+            WHERE is_active = #{isActiveFilter}
+        </if>
         ORDER BY group_id
     </select>
 
@@ -113,6 +116,9 @@
             updated_id
         FROM tb_common_code
         WHERE group_id = #{groupId}
+        <if test="isActiveFilter != null">
+          AND is_active = #{isActiveFilter}
+        </if>
         ORDER BY sort_seq ASC, code_id ASC
     </select>
 
