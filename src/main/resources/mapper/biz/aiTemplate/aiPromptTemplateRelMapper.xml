@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.aiTemplate.mapper.AiPromptTemplateRelMapper">
+
+    <resultMap id="AiPromptTemplateRelResultMap"
+               type="heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptTemplateRel">
+        <id column="rel_id" property="relId"/>
+        <result column="parent_template_id" property="parentTemplateId"/>
+        <result column="child_template_id" property="childTemplateId"/>
+        <result column="merge_type" property="mergeType"/>
+        <result column="sort_seq" property="sortSeq"/>
+        <result column="is_active" property="isActive"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="created_id" property="createdId"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+        <result column="updated_id" property="updatedId"/>
+    </resultMap>
+
+    <select id="selectByParentId" resultMap="AiPromptTemplateRelResultMap">
+        SELECT
+            rel_id,
+            parent_template_id,
+            child_template_id,
+            merge_type,
+            sort_seq,
+            is_active,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        FROM tb_mst_ai_prompt_template_rel
+        WHERE parent_template_id = #{parentTemplateId}
+        ORDER BY sort_seq ASC, rel_id ASC
+    </select>
+
+    <insert id="insert"
+            parameterType="heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptTemplateRel"
+            useGeneratedKeys="true"
+            keyProperty="relId">
+        INSERT INTO tb_mst_ai_prompt_template_rel (
+            parent_template_id,
+            child_template_id,
+            merge_type,
+            sort_seq,
+            is_active,
+            created_id,
+            updated_id
+        ) VALUES (
+            #{parentTemplateId},
+            #{childTemplateId},
+            #{mergeType},
+            #{sortSeq},
+            #{isActive},
+            #{createdId},
+            #{updatedId}
+        )
+    </insert>
+
+    <update id="updateIsActive">
+        UPDATE tb_mst_ai_prompt_template_rel
+        SET
+            is_active  = #{isActive},
+            updated_id = #{updatedId}
+        WHERE rel_id = #{relId}
+    </update>
+
+</mapper>

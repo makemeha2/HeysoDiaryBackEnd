@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.aiTemplate.mapper.AiPromptBindingMapper">
+
+    <resultMap id="AiPromptBindingResultMap"
+               type="heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptBinding">
+        <id column="binding_id" property="bindingId"/>
+        <result column="binding_name" property="bindingName"/>
+        <result column="domain_type" property="domainType"/>
+        <result column="feature_key" property="featureKey"/>
+        <result column="system_template_id" property="systemTemplateId"/>
+        <result column="user_template_id" property="userTemplateId"/>
+        <result column="runtime_profile_id" property="runtimeProfileId"/>
+        <result column="description" property="description"/>
+        <result column="is_active" property="isActive"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="created_id" property="createdId"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+        <result column="updated_id" property="updatedId"/>
+    </resultMap>
+
+    <select id="selectList" resultMap="AiPromptBindingResultMap">
+        SELECT
+            binding_id,
+            binding_name,
+            domain_type,
+            feature_key,
+            system_template_id,
+            user_template_id,
+            runtime_profile_id,
+            description,
+            is_active,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        FROM tb_mst_ai_prompt_binding
+        WHERE 1=1
+        <if test="status == 'ACTIVE'">AND is_active = 1</if>
+        <if test="status == 'INACTIVE'">AND is_active = 0</if>
+        ORDER BY binding_id DESC
+    </select>
+
+    <select id="selectById" resultMap="AiPromptBindingResultMap">
+        SELECT
+            binding_id,
+            binding_name,
+            domain_type,
+            feature_key,
+            system_template_id,
+            user_template_id,
+            runtime_profile_id,
+            description,
+            is_active,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        FROM tb_mst_ai_prompt_binding
+        WHERE binding_id = #{bindingId}
+    </select>
+
+    <select id="selectByDomainAndFeature" resultMap="AiPromptBindingResultMap">
+        SELECT
+            binding_id,
+            binding_name,
+            domain_type,
+            feature_key,
+            system_template_id,
+            user_template_id,
+            runtime_profile_id,
+            description,
+            is_active,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        FROM tb_mst_ai_prompt_binding
+        WHERE domain_type = #{domainType}
+          AND feature_key = #{featureKey}
+          AND is_active = 1
+        LIMIT 1
+    </select>
+
+    <insert id="insert"
+            parameterType="heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptBinding"
+            useGeneratedKeys="true"
+            keyProperty="bindingId">
+        INSERT INTO tb_mst_ai_prompt_binding (
+            binding_name,
+            domain_type,
+            feature_key,
+            system_template_id,
+            user_template_id,
+            runtime_profile_id,
+            description,
+            is_active,
+            created_id,
+            updated_id
+        ) VALUES (
+            #{bindingName},
+            #{domainType},
+            #{featureKey},
+            #{systemTemplateId},
+            #{userTemplateId},
+            #{runtimeProfileId},
+            #{description},
+            #{isActive},
+            #{createdId},
+            #{updatedId}
+        )
+    </insert>
+
+    <update id="update"
+            parameterType="heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptBinding">
+        UPDATE tb_mst_ai_prompt_binding
+        SET
+            binding_name        = #{bindingName},
+            domain_type         = #{domainType},
+            system_template_id  = #{systemTemplateId},
+            user_template_id    = #{userTemplateId},
+            runtime_profile_id  = #{runtimeProfileId},
+            description         = #{description},
+            updated_id          = #{updatedId}
+        WHERE binding_id = #{bindingId}
+    </update>
+
+    <update id="updateIsActive">
+        UPDATE tb_mst_ai_prompt_binding
+        SET
+            is_active  = #{isActive},
+            updated_id = #{updatedId}
+        WHERE binding_id = #{bindingId}
+    </update>
+
+</mapper>
