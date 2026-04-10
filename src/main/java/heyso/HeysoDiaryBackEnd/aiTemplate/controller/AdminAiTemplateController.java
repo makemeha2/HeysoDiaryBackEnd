@@ -59,8 +59,9 @@ public class AdminAiTemplateController {
     @GetMapping("/templates")
     public List<AiPromptTemplateListResponse> getTemplateList(
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String templateType) {
-        return aiPromptTemplateService.getList(status, templateType);
+            @RequestParam(required = false) String templateType,
+            @RequestParam(required = false) String domainType) {
+        return aiPromptTemplateService.getList(status, templateType, domainType);
     }
 
     @GetMapping("/templates/{templateId}")
@@ -136,8 +137,9 @@ public class AdminAiTemplateController {
 
     @GetMapping("/runtime-profiles")
     public List<AiRuntimeProfileListResponse> getRuntimeProfileList(
-            @RequestParam(required = false) String status) {
-        return aiRuntimeProfileService.getList(status);
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String domainType) {
+        return aiRuntimeProfileService.getList(status, domainType);
     }
 
     @PostMapping("/runtime-profiles")

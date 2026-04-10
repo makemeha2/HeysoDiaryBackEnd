@@ -22,6 +22,7 @@ public class AiRuntimeProfileListResponse {
     private String domainType;
     private String provider;
     private String model;
+    private String modelName;
     private BigDecimal temperature;
     private BigDecimal topP;
     private Integer maxTokens;

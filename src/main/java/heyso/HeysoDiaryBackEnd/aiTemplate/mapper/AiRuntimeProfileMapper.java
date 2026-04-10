@@ -10,7 +10,7 @@ import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiRuntimeProfile;
 @Mapper
 public interface AiRuntimeProfileMapper {
 
-    List<AiRuntimeProfile> selectList(@Param("status") String status);
+    List<AiRuntimeProfile> selectList(@Param("status") String status, @Param("domainType") String domainType);
 
     AiRuntimeProfile selectById(@Param("runtimeProfileId") Long runtimeProfileId);
 

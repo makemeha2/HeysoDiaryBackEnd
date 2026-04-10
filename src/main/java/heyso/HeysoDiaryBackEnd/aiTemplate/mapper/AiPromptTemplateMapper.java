@@ -10,7 +10,7 @@ import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptTemplate;
 @Mapper
 public interface AiPromptTemplateMapper {
 
-    List<AiPromptTemplate> selectList(@Param("status") String status, @Param("templateType") String templateType);
+    List<AiPromptTemplate> selectList(@Param("status") String status, @Param("templateType") String templateType, @Param("domainType") String domainType);
 
     AiPromptTemplate selectById(@Param("templateId") Long templateId);
 

@@ -26,9 +26,9 @@ public class AiRuntimeProfileService {
 
     private final AiRuntimeProfileMapper aiRuntimeProfileMapper;
 
-    public List<AiRuntimeProfileListResponse> getList(String status) {
+    public List<AiRuntimeProfileListResponse> getList(String status, String domainType) {
         String resolvedStatus = (status == null) ? "ALL" : status;
-        List<AiRuntimeProfile> profiles = aiRuntimeProfileMapper.selectList(resolvedStatus);
+        List<AiRuntimeProfile> profiles = aiRuntimeProfileMapper.selectList(resolvedStatus, domainType);
         return profiles.stream()
                 .map(this::toListResponse)
                 .collect(Collectors.toList());
@@ -110,6 +110,7 @@ public class AiRuntimeProfileService {
                 .domainType(p.getDomainType())
                 .provider(p.getProvider())
                 .model(p.getModel())
+                .modelName(p.getModelName())
                 .temperature(p.getTemperature())
                 .topP(p.getTopP())
                 .maxTokens(p.getMaxTokens())

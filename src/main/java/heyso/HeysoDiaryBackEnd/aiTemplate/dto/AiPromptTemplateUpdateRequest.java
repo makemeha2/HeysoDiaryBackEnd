@@ -11,6 +11,9 @@ public class AiPromptTemplateUpdateRequest {
     @NotBlank
     private String templateName;
 
+    @NotBlank
+    private String domainType;
+
     private String featureKey;
 
     @NotBlank
@@ -25,4 +28,6 @@ public class AiPromptTemplateUpdateRequest {
     private String variablesSchemaJson;
 
     private String description;
+
+    private Integer isActive;
 }

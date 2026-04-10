@@ -30,9 +30,9 @@ public class AiPromptTemplateService {
     private final AiPromptTemplateRelMapper aiPromptTemplateRelMapper;
     private final AiTemplateRenderer aiTemplateRenderer;
 
-    public List<AiPromptTemplateListResponse> getList(String status, String templateType) {
+    public List<AiPromptTemplateListResponse> getList(String status, String templateType, String domainType) {
         String resolvedStatus = (status == null) ? "ALL" : status;
-        List<AiPromptTemplate> templates = aiPromptTemplateMapper.selectList(resolvedStatus, templateType);
+        List<AiPromptTemplate> templates = aiPromptTemplateMapper.selectList(resolvedStatus, templateType, domainType);
         return templates.stream()
                 .map(this::toListResponse)
                 .collect(Collectors.toList());
@@ -50,7 +50,8 @@ public class AiPromptTemplateService {
     public void create(AiPromptTemplateCreateRequest request, Long operatorId) {
         AiPromptTemplate existing = aiPromptTemplateMapper.selectByKey(request.getTemplateKey());
         if (existing != null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Template key already exists: " + request.getTemplateKey());
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Template key already exists: " + request.getTemplateKey());
         }
 
         AiPromptTemplate template = AiPromptTemplate.builder()
@@ -79,12 +80,16 @@ public class AiPromptTemplateService {
         }
 
         existing.setTemplateName(request.getTemplateName());
+        existing.setDomainType(request.getDomainType());
         existing.setFeatureKey(request.getFeatureKey());
         existing.setTemplateRole(request.getTemplateRole());
         existing.setTemplateType(request.getTemplateType());
         existing.setContent(request.getContent());
         existing.setVariablesSchemaJson(request.getVariablesSchemaJson());
         existing.setDescription(request.getDescription());
+        if (request.getIsActive() != null) {
+            existing.setIsActive(request.getIsActive());
+        }
         existing.setUpdatedId(operatorId);
 
         aiPromptTemplateMapper.update(existing);
@@ -128,7 +133,8 @@ public class AiPromptTemplateService {
 
         AiPromptTemplate child = aiPromptTemplateMapper.selectById(request.getChildTemplateId());
         if (child == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Child template not found: " + request.getChildTemplateId());
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Child template not found: " + request.getChildTemplateId());
         }
         if (!"FRAGMENT".equals(child.getTemplateType())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Child template must be of type FRAGMENT");
@@ -180,7 +186,8 @@ public class AiPromptTemplateService {
                 .build();
     }
 
-    private AiPromptTemplateDetailResponse toDetailResponse(AiPromptTemplate t, List<AiPromptTemplateRelResponse> relations) {
+    private AiPromptTemplateDetailResponse toDetailResponse(AiPromptTemplate t,
+            List<AiPromptTemplateRelResponse> relations) {
         return AiPromptTemplateDetailResponse.builder()
                 .templateId(t.getTemplateId())
                 .templateKey(t.getTemplateKey())

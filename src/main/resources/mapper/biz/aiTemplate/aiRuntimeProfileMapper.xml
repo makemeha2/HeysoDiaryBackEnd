@@ -12,6 +12,7 @@
         <result column="domain_type" property="domainType"/>
         <result column="provider" property="provider"/>
         <result column="model" property="model"/>
+        <result column="model_name" property="modelName"/>
         <result column="temperature" property="temperature"/>
         <result column="top_p" property="topP"/>
         <result column="max_tokens" property="maxTokens"/>
@@ -26,27 +27,32 @@
 
     <select id="selectList" resultMap="AiRuntimeProfileResultMap">
         SELECT
-            runtime_profile_id,
-            profile_key,
-            profile_name,
-            domain_type,
-            provider,
-            model,
-            temperature,
-            top_p,
-            max_tokens,
-            description,
-            revision_no,
-            is_active,
-            created_at,
-            created_id,
-            updated_at,
-            updated_id
-        FROM tb_mst_ai_runtime_profile
+            rp.runtime_profile_id,
+            rp.profile_key,
+            rp.profile_name,
+            rp.domain_type,
+            rp.provider,
+            rp.model,
+            cc.code_name AS model_name,
+            rp.temperature,
+            rp.top_p,
+            rp.max_tokens,
+            rp.description,
+            rp.revision_no,
+            rp.is_active,
+            rp.created_at,
+            rp.created_id,
+            rp.updated_at,
+            rp.updated_id
+        FROM tb_mst_ai_runtime_profile rp
+        LEFT JOIN tb_common_code cc
+               ON cc.group_id = 'ai_models'
+              AND cc.code_id = rp.model
         WHERE 1=1
-        <if test="status == 'ACTIVE'">AND is_active = 1</if>
-        <if test="status == 'INACTIVE'">AND is_active = 0</if>
-        ORDER BY runtime_profile_id DESC
+        <if test="status == 'ACTIVE'">AND rp.is_active = 1</if>
+        <if test="status == 'INACTIVE'">AND rp.is_active = 0</if>
+        <if test="domainType != null">AND rp.domain_type = #{domainType}</if>
+        ORDER BY rp.runtime_profile_id DESC
     </select>
 
     <select id="selectById" resultMap="AiRuntimeProfileResultMap">
