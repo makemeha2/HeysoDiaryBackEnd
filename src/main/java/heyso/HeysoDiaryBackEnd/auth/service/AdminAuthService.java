@@ -25,8 +25,7 @@ public class AdminAuthService {
 
     public AuthResponse login(String loginId, String password) {
         UserAuth userAuth = userMapper.selectUserAuthByLoginIdAndProvider(loginId, LOCAL_PROVIDER);
-        if (userAuth == null || userAuth.getPasswordHash() == null
-                || !passwordEncoder.matches(password, userAuth.getPasswordHash())) {
+        if (userAuth == null || userAuth.getPasswordHash() == null || !matchesPassword(password, userAuth.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid admin credentials");
         }
 
@@ -52,5 +51,13 @@ public class AdminAuthService {
                 user.getNickname(),
                 user.getRole(),
                 null);
+    }
+
+    private boolean matchesPassword(String rawPassword, String passwordHash) {
+        try {
+            return passwordEncoder.matches(rawPassword, passwordHash);
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 }

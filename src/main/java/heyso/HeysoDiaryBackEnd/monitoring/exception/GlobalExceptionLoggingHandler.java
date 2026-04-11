@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -22,11 +23,13 @@ public class GlobalExceptionLoggingHandler {
 
     private final MonitoringEventService monitoringEventService;
 
-    // @ExceptionHandler(ResponseStatusException.class)
-    // public void handleResponseStatusException(ResponseStatusException exception)
-    // {
-    // throw exception;
-    // }
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException exception) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", exception.getStatusCode().value());
+        response.put("message", exception.getReason());
+        return ResponseEntity.status(exception.getStatusCode()).body(response);
+    }
 
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNoResourceFoundException(
