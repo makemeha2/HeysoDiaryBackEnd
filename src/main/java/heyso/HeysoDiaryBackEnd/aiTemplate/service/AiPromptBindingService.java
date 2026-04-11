@@ -104,19 +104,12 @@ public class AiPromptBindingService {
         existing.setUserTemplateId(request.getUserTemplateId());
         existing.setRuntimeProfileId(request.getRuntimeProfileId());
         existing.setDescription(request.getDescription());
+        if (request.getIsActive() != null) {
+            existing.setIsActive(request.getIsActive());
+        }
         existing.setUpdatedId(operatorId);
 
         aiPromptBindingMapper.update(existing);
-    }
-
-    public void softDelete(Long bindingId) {
-        Long operatorId = requireAdminUserId();
-
-        AiPromptBinding existing = aiPromptBindingMapper.selectById(bindingId);
-        if (existing == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Binding not found: " + bindingId);
-        }
-        aiPromptBindingMapper.updateIsActive(bindingId, 0, operatorId);
     }
 
     private Long requireAdminUserId() {

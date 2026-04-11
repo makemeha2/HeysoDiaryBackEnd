@@ -25,4 +25,6 @@ public class AiPromptBindingUpdateRequest {
     private Long runtimeProfileId;
 
     private String description;
+
+    private Integer isActive;
 }

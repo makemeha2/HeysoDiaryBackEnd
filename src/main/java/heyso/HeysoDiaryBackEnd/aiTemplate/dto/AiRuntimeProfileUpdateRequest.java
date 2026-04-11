@@ -28,4 +28,6 @@ public class AiRuntimeProfileUpdateRequest {
     private Integer maxTokens;
 
     private String description;
+
+    private Integer isActive;
 }

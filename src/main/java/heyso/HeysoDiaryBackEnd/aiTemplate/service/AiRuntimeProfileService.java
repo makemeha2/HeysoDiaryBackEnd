@@ -72,19 +72,12 @@ public class AiRuntimeProfileService {
         existing.setTopP(request.getTopP());
         existing.setMaxTokens(request.getMaxTokens());
         existing.setDescription(request.getDescription());
+        if (request.getIsActive() != null) {
+            existing.setIsActive(request.getIsActive());
+        }
         existing.setUpdatedId(operatorId);
 
         aiRuntimeProfileMapper.update(existing);
-    }
-
-    public void softDelete(Long runtimeProfileId) {
-        Long operatorId = requireAdminUserId();
-
-        AiRuntimeProfile existing = aiRuntimeProfileMapper.selectById(runtimeProfileId);
-        if (existing == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "RuntimeProfile not found: " + runtimeProfileId);
-        }
-        aiRuntimeProfileMapper.updateIsActive(runtimeProfileId, 0, operatorId);
     }
 
     private Long requireAdminUserId() {

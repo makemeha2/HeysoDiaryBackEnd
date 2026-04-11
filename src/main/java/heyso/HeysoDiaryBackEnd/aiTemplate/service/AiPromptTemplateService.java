@@ -95,14 +95,6 @@ public class AiPromptTemplateService {
         aiPromptTemplateMapper.update(existing);
     }
 
-    public void softDelete(Long templateId, Long operatorId) {
-        AiPromptTemplate existing = aiPromptTemplateMapper.selectById(templateId);
-        if (existing == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Template not found: " + templateId);
-        }
-        aiPromptTemplateMapper.updateIsActive(templateId, 0, operatorId);
-    }
-
     public List<AiPromptTemplateRelResponse> getRelations(Long parentTemplateId) {
         List<AiPromptTemplateRel> rels = aiPromptTemplateRelMapper.selectByParentId(parentTemplateId);
         return rels.stream()

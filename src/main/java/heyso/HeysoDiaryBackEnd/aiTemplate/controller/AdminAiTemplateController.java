@@ -85,13 +85,6 @@ public class AdminAiTemplateController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/templates/{templateId}/delete")
-    public ResponseEntity<Void> deleteTemplate(@PathVariable Long templateId) {
-        Long operatorId = requireAdminUserId();
-        aiPromptTemplateService.softDelete(templateId, operatorId);
-        return ResponseEntity.ok().build();
-    }
-
     // =========================================================================
     // Template Relations
     // =========================================================================
@@ -156,12 +149,6 @@ public class AdminAiTemplateController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/runtime-profiles/{runtimeProfileId}/delete")
-    public ResponseEntity<Void> deleteRuntimeProfile(@PathVariable Long runtimeProfileId) {
-        aiRuntimeProfileService.softDelete(runtimeProfileId);
-        return ResponseEntity.ok().build();
-    }
-
     // =========================================================================
     // Binding
     // =========================================================================
@@ -188,12 +175,6 @@ public class AdminAiTemplateController {
             @PathVariable Long bindingId,
             @Valid @RequestBody AiPromptBindingUpdateRequest request) {
         aiPromptBindingService.update(bindingId, request);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/bindings/{bindingId}/delete")
-    public ResponseEntity<Void> deleteBinding(@PathVariable Long bindingId) {
-        aiPromptBindingService.softDelete(bindingId);
         return ResponseEntity.ok().build();
     }
 
