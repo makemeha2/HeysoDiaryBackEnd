@@ -56,6 +56,7 @@ public class SecurityConfig {
                                         auth.requestMatchers(
                                                         "/api/auth/oauth/google",
                                                         "/api/auth/validate",
+                                                        "/api/admin/auth/login",
                                                         "/swagger-ui/**",
                                                         "/v3/api-docs/**").permitAll();
                                         auth.requestMatchers(
@@ -66,6 +67,8 @@ public class SecurityConfig {
 
                                         // ✅ 사용자 정의 엔드포인트 규칙
                                         endpointSecurities.forEach(es -> es.configure(auth));
+
+                                        auth.requestMatchers("/api/admin/**").hasAuthority("SCOPE_admin");
 
                                         // ✅ 나머지 API는 인증 필요
                                         auth.requestMatchers("/api/**").authenticated();

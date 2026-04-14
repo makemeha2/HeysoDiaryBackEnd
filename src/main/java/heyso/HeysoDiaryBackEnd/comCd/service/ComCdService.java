@@ -3,6 +3,8 @@ package heyso.HeysoDiaryBackEnd.comCd.service;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,15 +23,17 @@ import heyso.HeysoDiaryBackEnd.user.model.User;
 
 @Service
 public class ComCdService {
+    private static final String ADMIN_SCOPE_AUTHORITY = "SCOPE_admin";
+
     private final CommonCodeMapper commonCodeMapper;
 
     public ComCdService(CommonCodeMapper commonCodeMapper) {
         this.commonCodeMapper = commonCodeMapper;
     }
 
-    public List<CommonCodeGroupResponse> getAdminGroupList() {
+    public List<CommonCodeGroupResponse> getAdminGroupList(String status) {
         requireAdminUser();
-        return commonCodeMapper.selectCommonCodeGroupListForAdmin()
+        return commonCodeMapper.selectCommonCodeGroupListForAdmin(resolveIsActiveFilter(status))
                 .stream()
                 .map(CommonCodeGroupResponse::from)
                 .toList();
@@ -82,10 +86,10 @@ public class ComCdService {
         commonCodeMapper.deleteCommonCodeGroup(groupId, user.getUserId());
     }
 
-    public List<CommonCodeResponse> getAdminCodeList(String groupId) {
+    public List<CommonCodeResponse> getAdminCodeList(String groupId, String status) {
         requireAdminUser();
         getGroupOrThrow(groupId);
-        return commonCodeMapper.selectCommonCodeListForAdmin(groupId)
+        return commonCodeMapper.selectCommonCodeListForAdmin(groupId, resolveIsActiveFilter(status))
                 .stream()
                 .map(CommonCodeResponse::from)
                 .toList();
@@ -181,10 +185,28 @@ public class ComCdService {
     }
 
     private User requireAdminUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean hasAdminScope = authentication != null && authentication.getAuthorities()
+                .stream()
+                .anyMatch(authority -> ADMIN_SCOPE_AUTHORITY.equals(authority.getAuthority()));
+        if (!hasAdminScope) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin scope required");
+        }
+
         User user = SecurityUtils.getCurrentUserOrThrow();
         if (user.getRole() == null || !"ADMIN".equalsIgnoreCase(user.getRole())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
         }
         return user;
+    }
+
+    private Boolean resolveIsActiveFilter(String status) {
+        if ("ACTIVE".equalsIgnoreCase(status)) {
+            return Boolean.TRUE;
+        }
+        if ("INACTIVE".equalsIgnoreCase(status)) {
+            return Boolean.FALSE;
+        }
+        return null;
     }
 }

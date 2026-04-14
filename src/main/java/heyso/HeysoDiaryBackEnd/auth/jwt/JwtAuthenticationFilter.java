@@ -12,12 +12,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -42,13 +44,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 Long userId = Long.valueOf(claims.getSubject());
                 String role = (String) claims.get("role");
+                String scope = (String) claims.get("scope");
 
                 User user = userMapper.selectUserById(userId);
                 if (user != null && "ACTIVE".equals(user.getStatus())) {
+                    List<GrantedAuthority> authorities = new ArrayList<>();
+                    if (StringUtils.hasText(role)) {
+                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
+                    }
+                    if (StringUtils.hasText(scope)) {
+                        authorities.add(new SimpleGrantedAuthority("SCOPE_" + scope));
+                    }
+
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                             user,
                             null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                            authorities);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
 

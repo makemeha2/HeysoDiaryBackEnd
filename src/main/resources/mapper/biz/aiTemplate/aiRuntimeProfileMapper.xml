@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.aiTemplate.mapper.AiRuntimeProfileMapper">
+
+    <resultMap id="AiRuntimeProfileResultMap"
+               type="heyso.HeysoDiaryBackEnd.aiTemplate.model.AiRuntimeProfile">
+        <id column="runtime_profile_id" property="runtimeProfileId"/>
+        <result column="profile_key" property="profileKey"/>
+        <result column="profile_name" property="profileName"/>
+        <result column="domain_type" property="domainType"/>
+        <result column="provider" property="provider"/>
+        <result column="model" property="model"/>
+        <result column="model_name" property="modelName"/>
+        <result column="temperature" property="temperature"/>
+        <result column="top_p" property="topP"/>
+        <result column="max_tokens" property="maxTokens"/>
+        <result column="description" property="description"/>
+        <result column="revision_no" property="revisionNo"/>
+        <result column="is_active" property="isActive"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="created_id" property="createdId"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+        <result column="updated_id" property="updatedId"/>
+    </resultMap>
+
+    <select id="selectList" resultMap="AiRuntimeProfileResultMap">
+        SELECT
+            rp.runtime_profile_id,
+            rp.profile_key,
+            rp.profile_name,
+            rp.domain_type,
+            rp.provider,
+            rp.model,
+            cc.code_name AS model_name,
+            rp.temperature,
+            rp.top_p,
+            rp.max_tokens,
+            rp.description,
+            rp.revision_no,
+            rp.is_active,
+            rp.created_at,
+            rp.created_id,
+            rp.updated_at,
+            rp.updated_id
+        FROM tb_mst_ai_runtime_profile rp
+        LEFT JOIN tb_common_code cc
+               ON cc.group_id = 'ai_models'
+              AND cc.code_id = rp.model
+        WHERE 1=1
+        <if test="status == 'ACTIVE'">AND rp.is_active = 1</if>
+        <if test="status == 'INACTIVE'">AND rp.is_active = 0</if>
+        <if test="domainType != null">AND rp.domain_type = #{domainType}</if>
+        ORDER BY rp.runtime_profile_id DESC
+    </select>
+
+    <select id="selectById" resultMap="AiRuntimeProfileResultMap">
+        SELECT
+            runtime_profile_id,
+            profile_key,
+            profile_name,
+            domain_type,
+            provider,
+            model,
+            temperature,
+            top_p,
+            max_tokens,
+            description,
+            revision_no,
+            is_active,
+            created_at,
+            created_id,
+            updated_at,
+            updated_id
+        FROM tb_mst_ai_runtime_profile
+        WHERE runtime_profile_id = #{runtimeProfileId}
+    </select>
+
+    <insert id="insert"
+            parameterType="heyso.HeysoDiaryBackEnd.aiTemplate.model.AiRuntimeProfile"
+            useGeneratedKeys="true"
+            keyProperty="runtimeProfileId">
+        INSERT INTO tb_mst_ai_runtime_profile (
+            profile_key,
+            profile_name,
+            domain_type,
+            provider,
+            model,
+            temperature,
+            top_p,
+            max_tokens,
+            description,
+            revision_no,
+            is_active,
+            created_id,
+            updated_id
+        ) VALUES (
+            #{profileKey},
+            #{profileName},
+            #{domainType},
+            #{provider},
+            #{model},
+            #{temperature},
+            #{topP},
+            #{maxTokens},
+            #{description},
+            #{revisionNo},
+            #{isActive},
+            #{createdId},
+            #{updatedId}
+        )
+    </insert>
+
+    <update id="update"
+            parameterType="heyso.HeysoDiaryBackEnd.aiTemplate.model.AiRuntimeProfile">
+        UPDATE tb_mst_ai_runtime_profile
+        SET
+            profile_name = #{profileName},
+            domain_type  = #{domainType},
+            provider     = #{provider},
+            model        = #{model},
+            temperature  = #{temperature},
+            top_p        = #{topP},
+            max_tokens   = #{maxTokens},
+            description  = #{description},
+            revision_no  = #{revisionNo},
+            updated_id   = #{updatedId}
+        WHERE runtime_profile_id = #{runtimeProfileId}
+    </update>
+
+    <update id="updateIsActive">
+        UPDATE tb_mst_ai_runtime_profile
+        SET
+            is_active  = #{isActive},
+            updated_id = #{updatedId}
+        WHERE runtime_profile_id = #{runtimeProfileId}
+    </update>
+
+</mapper>

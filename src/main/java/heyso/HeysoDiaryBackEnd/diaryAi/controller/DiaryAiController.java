@@ -52,6 +52,7 @@ public class DiaryAiController {
         return ResponseEntity.ok(responses);
     }
 
+    // TODO : 사용안하는 것으로 확인됨. 삭제여부 판단해야함.
     @PostMapping("/ai-comments/{aiCommentId}/feedback")
     public ResponseEntity<Void> createFeedback(@PathVariable Long aiCommentId,
             @Valid @RequestBody DiaryAiFeedbackCreateRequest request) {

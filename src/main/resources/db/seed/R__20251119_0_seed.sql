@@ -38,7 +38,7 @@ INSERT INTO tb_user_auth (
     login_id, password_hash, last_login_at, created_at, updated_at
 ) VALUES
 (1, 1, 'LOCAL',  'admin_local',
- 'admin', '$2a$10$LOCAL_ADMIN_HASH_EXAMPLE', '2025-11-18 08:00:00', '2025-11-01 09:00:00', '2025-11-18 08:00:00'),
+ 'admin', '$2a$10$HNOpwqwgkJhL8iRanNxBcerU376kgMg3qfzzTpFdI2niS.wOAUZua', '2025-11-18 08:00:00', '2025-11-01 09:00:00', '2025-11-18 08:00:00'),
 
 (2, 1, 'GOOGLE', 'google-sub-1234567890',
  NULL, NULL, '2025-11-18 09:00:00', '2025-11-01 09:05:00', '2025-11-18 09:00:00'),

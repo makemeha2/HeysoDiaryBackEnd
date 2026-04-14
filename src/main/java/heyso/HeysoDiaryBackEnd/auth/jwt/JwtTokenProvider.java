@@ -26,17 +26,26 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(Long userId, String email, String role) {
+        return generateToken(userId, email, role, null);
+    }
+
+    public String generateToken(Long userId, String email, String role, String scope) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + validityInMs);
 
-        return Jwts.builder()
+        JwtBuilder builder = Jwts.builder()
                 .setSubject(String.valueOf(userId))
                 .claim("email", email)
                 .claim("role", role)
                 .setIssuedAt(now)
                 .setExpiration(expiry)
-                .signWith(secretKey, SignatureAlgorithm.HS256)
-                .compact();
+                .signWith(secretKey, SignatureAlgorithm.HS256);
+
+        if (scope != null && !scope.isBlank()) {
+            builder.claim("scope", scope);
+        }
+
+        return builder.compact();
     }
 
     public Jws<Claims> parseClaims(String token) {

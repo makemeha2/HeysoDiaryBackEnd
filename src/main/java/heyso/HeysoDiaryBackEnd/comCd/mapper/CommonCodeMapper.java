@@ -11,7 +11,7 @@ import heyso.HeysoDiaryBackEnd.comCd.model.CommonCodeGroup;
 @Mapper
 public interface CommonCodeMapper {
     /* ------------------------------ 관리자: 그룹 CRUD ------------------------------ */
-    List<CommonCodeGroup> selectCommonCodeGroupListForAdmin();
+    List<CommonCodeGroup> selectCommonCodeGroupListForAdmin(@Param("isActiveFilter") Boolean isActiveFilter);
 
     CommonCodeGroup selectCommonCodeGroupById(@Param("groupId") String groupId);
 
@@ -23,7 +23,8 @@ public interface CommonCodeMapper {
             @Param("updatedId") Long updatedId);
 
     /* ------------------------------ 관리자: 코드 CRUD ------------------------------ */
-    List<CommonCode> selectCommonCodeListForAdmin(@Param("groupId") String groupId);
+    List<CommonCode> selectCommonCodeListForAdmin(@Param("groupId") String groupId,
+            @Param("isActiveFilter") Boolean isActiveFilter);
 
     CommonCode selectCommonCodeById(@Param("groupId") String groupId,
             @Param("codeId") String codeId);

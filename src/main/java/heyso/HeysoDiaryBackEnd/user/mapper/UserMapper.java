@@ -19,6 +19,10 @@ public interface UserMapper {
             @Param("authProvider") String authProvider,
             @Param("providerUserId") String providerUserId);
 
+    UserAuth selectUserAuthByLoginIdAndProvider(
+            @Param("loginId") String loginId,
+            @Param("authProvider") String authProvider);
+
     UserAuth selectUserAuthByUserIdAndProvider(
             @Param("userId") Long userId,
             @Param("authProvider") String authProvider);
