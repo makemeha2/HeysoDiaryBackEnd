@@ -118,12 +118,12 @@
             resolved_yn = #{resolvedYn},
             resolved_at =
             <choose>
-                <when test="resolvedYn == 'Y'">NOW()</when>
+                <when test='resolvedYn == "Y"'>NOW()</when>
                 <otherwise>NULL</otherwise>
             </choose>,
             resolved_by =
             <choose>
-                <when test="resolvedYn == 'Y'">#{resolvedBy}</when>
+                <when test='resolvedYn == "Y"'>#{resolvedBy}</when>
                 <otherwise>NULL</otherwise>
             </choose>,
             updated_at = NOW()
@@ -131,3 +131,4 @@
     </update>
 
 </mapper>
+
