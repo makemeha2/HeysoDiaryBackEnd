@@ -4,8 +4,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -19,16 +17,14 @@ import heyso.HeysoDiaryBackEnd.aiTemplate.mapper.AiRuntimeProfileMapper;
 import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptBinding;
 import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptTemplate;
 import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiRuntimeProfile;
-import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
-import heyso.HeysoDiaryBackEnd.user.model.User;
+import heyso.HeysoDiaryBackEnd.auth.service.AdminAuthorizationService;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class AiPromptBindingService {
 
-    private static final String ADMIN_SCOPE_AUTHORITY = "SCOPE_admin";
-
+    private final AdminAuthorizationService adminAuthorizationService;
     private final AiPromptBindingMapper aiPromptBindingMapper;
     private final AiPromptTemplateMapper aiPromptTemplateMapper;
     private final AiRuntimeProfileMapper aiRuntimeProfileMapper;
@@ -72,7 +68,7 @@ public class AiPromptBindingService {
     }
 
     public void create(AiPromptBindingCreateRequest request) {
-        Long operatorId = requireAdminUserId();
+        Long operatorId = adminAuthorizationService.requireAdminUserId();
 
         AiPromptBinding binding = AiPromptBinding.builder()
                 .bindingName(request.getBindingName())
@@ -91,7 +87,7 @@ public class AiPromptBindingService {
     }
 
     public void update(Long bindingId, AiPromptBindingUpdateRequest request) {
-        Long operatorId = requireAdminUserId();
+        Long operatorId = adminAuthorizationService.requireAdminUserId();
 
         AiPromptBinding existing = aiPromptBindingMapper.selectById(bindingId);
         if (existing == null) {
@@ -110,21 +106,6 @@ public class AiPromptBindingService {
         existing.setUpdatedId(operatorId);
 
         aiPromptBindingMapper.update(existing);
-    }
-
-    private Long requireAdminUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean hasAdminScope = authentication != null && authentication.getAuthorities()
-                .stream()
-                .anyMatch(a -> ADMIN_SCOPE_AUTHORITY.equals(a.getAuthority()));
-        if (!hasAdminScope) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin scope required");
-        }
-        User user = SecurityUtils.getCurrentUserOrThrow();
-        if (user.getRole() == null || !"ADMIN".equalsIgnoreCase(user.getRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
-        }
-        return user.getUserId();
     }
 
     private AiPromptBindingListResponse toListResponse(AiPromptBinding b) {
