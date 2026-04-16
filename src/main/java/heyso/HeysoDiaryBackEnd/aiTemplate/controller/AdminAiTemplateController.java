@@ -32,7 +32,6 @@ import heyso.HeysoDiaryBackEnd.aiTemplate.dto.AiTemplatePreviewResponse;
 import heyso.HeysoDiaryBackEnd.aiTemplate.service.AiPromptBindingService;
 import heyso.HeysoDiaryBackEnd.aiTemplate.service.AiPromptTemplateService;
 import heyso.HeysoDiaryBackEnd.aiTemplate.service.AiRuntimeProfileService;
-import heyso.HeysoDiaryBackEnd.auth.service.AdminAuthorizationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -45,7 +44,6 @@ public class AdminAiTemplateController {
     private final AiPromptTemplateService aiPromptTemplateService;
     private final AiRuntimeProfileService aiRuntimeProfileService;
     private final AiPromptBindingService aiPromptBindingService;
-    private final AdminAuthorizationService adminAuthorizationService;
 
     // =========================================================================
     // Template
@@ -66,8 +64,7 @@ public class AdminAiTemplateController {
 
     @PostMapping("/templates")
     public ResponseEntity<Void> createTemplate(@Valid @RequestBody AiPromptTemplateCreateRequest request) {
-        Long operatorId = adminAuthorizationService.requireAdminUserId();
-        aiPromptTemplateService.create(request, operatorId);
+        aiPromptTemplateService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -75,8 +72,7 @@ public class AdminAiTemplateController {
     public ResponseEntity<Void> updateTemplate(
             @PathVariable Long templateId,
             @Valid @RequestBody AiPromptTemplateUpdateRequest request) {
-        Long operatorId = adminAuthorizationService.requireAdminUserId();
-        aiPromptTemplateService.update(templateId, request, operatorId);
+        aiPromptTemplateService.update(templateId, request);
         return ResponseEntity.ok().build();
     }
 
@@ -93,8 +89,7 @@ public class AdminAiTemplateController {
     public ResponseEntity<Void> addTemplateRelation(
             @PathVariable Long templateId,
             @Valid @RequestBody AiPromptTemplateRelCreateRequest request) {
-        Long operatorId = adminAuthorizationService.requireAdminUserId();
-        aiPromptTemplateService.addRelation(templateId, request, operatorId);
+        aiPromptTemplateService.addRelation(templateId, request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -102,8 +97,7 @@ public class AdminAiTemplateController {
     public ResponseEntity<Void> deleteTemplateRelation(
             @PathVariable Long templateId,
             @PathVariable Long relId) {
-        Long operatorId = adminAuthorizationService.requireAdminUserId();
-        aiPromptTemplateService.deleteRelation(templateId, relId, operatorId);
+        aiPromptTemplateService.deleteRelation(templateId, relId);
         return ResponseEntity.ok().build();
     }
 

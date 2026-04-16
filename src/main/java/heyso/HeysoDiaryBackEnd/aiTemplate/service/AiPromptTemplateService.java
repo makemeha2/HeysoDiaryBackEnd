@@ -20,17 +20,21 @@ import heyso.HeysoDiaryBackEnd.aiTemplate.mapper.AiPromptTemplateMapper;
 import heyso.HeysoDiaryBackEnd.aiTemplate.mapper.AiPromptTemplateRelMapper;
 import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptTemplate;
 import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptTemplateRel;
+import heyso.HeysoDiaryBackEnd.auth.service.AdminAuthorizationService;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class AiPromptTemplateService {
 
+    private final AdminAuthorizationService adminAuthorizationService;
     private final AiPromptTemplateMapper aiPromptTemplateMapper;
     private final AiPromptTemplateRelMapper aiPromptTemplateRelMapper;
     private final AiTemplateRenderer aiTemplateRenderer;
 
     public List<AiPromptTemplateListResponse> getList(String status, String templateType, String domainType) {
+        adminAuthorizationService.requireAdminUser();
+
         String resolvedStatus = (status == null) ? "ALL" : status;
         List<AiPromptTemplate> templates = aiPromptTemplateMapper.selectList(resolvedStatus, templateType, domainType);
         return templates.stream()
@@ -39,6 +43,8 @@ public class AiPromptTemplateService {
     }
 
     public AiPromptTemplateDetailResponse getDetail(Long templateId) {
+        adminAuthorizationService.requireAdminUser();
+
         AiPromptTemplate template = aiPromptTemplateMapper.selectById(templateId);
         if (template == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Template not found: " + templateId);
@@ -47,7 +53,9 @@ public class AiPromptTemplateService {
         return toDetailResponse(template, relations);
     }
 
-    public void create(AiPromptTemplateCreateRequest request, Long operatorId) {
+    public void create(AiPromptTemplateCreateRequest request) {
+        Long operatorId = adminAuthorizationService.requireAdminUserId();
+
         AiPromptTemplate existing = aiPromptTemplateMapper.selectByKey(request.getTemplateKey());
         if (existing != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -73,7 +81,9 @@ public class AiPromptTemplateService {
         aiPromptTemplateMapper.insert(template);
     }
 
-    public void update(Long templateId, AiPromptTemplateUpdateRequest request, Long operatorId) {
+    public void update(Long templateId, AiPromptTemplateUpdateRequest request) {
+        Long operatorId = adminAuthorizationService.requireAdminUserId();
+
         AiPromptTemplate existing = aiPromptTemplateMapper.selectById(templateId);
         if (existing == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Template not found: " + templateId);
@@ -96,6 +106,8 @@ public class AiPromptTemplateService {
     }
 
     public List<AiPromptTemplateRelResponse> getRelations(Long parentTemplateId) {
+        adminAuthorizationService.requireAdminUser();
+
         List<AiPromptTemplateRel> rels = aiPromptTemplateRelMapper.selectByParentId(parentTemplateId);
         return rels.stream()
                 .map(rel -> {
@@ -114,7 +126,9 @@ public class AiPromptTemplateService {
                 .collect(Collectors.toList());
     }
 
-    public void addRelation(Long parentTemplateId, AiPromptTemplateRelCreateRequest request, Long operatorId) {
+    public void addRelation(Long parentTemplateId, AiPromptTemplateRelCreateRequest request) {
+        Long operatorId = adminAuthorizationService.requireAdminUserId();
+
         AiPromptTemplate parent = aiPromptTemplateMapper.selectById(parentTemplateId);
         if (parent == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Parent template not found: " + parentTemplateId);
@@ -145,11 +159,15 @@ public class AiPromptTemplateService {
         aiPromptTemplateRelMapper.insert(rel);
     }
 
-    public void deleteRelation(Long parentTemplateId, Long relId, Long operatorId) {
+    public void deleteRelation(Long parentTemplateId, Long relId) {
+        Long operatorId = adminAuthorizationService.requireAdminUserId();
+
         aiPromptTemplateRelMapper.updateIsActive(relId, 0, operatorId);
     }
 
     public AiTemplatePreviewResponse preview(Long templateId, Map<String, String> variables) {
+        adminAuthorizationService.requireAdminUser();
+
         AiPromptTemplate template = aiPromptTemplateMapper.selectById(templateId);
         if (template == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Template not found: " + templateId);

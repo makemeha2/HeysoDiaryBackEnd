@@ -30,6 +30,8 @@ public class AiPromptBindingService {
     private final AiRuntimeProfileMapper aiRuntimeProfileMapper;
 
     public List<AiPromptBindingListResponse> getList(String status) {
+        adminAuthorizationService.requireAdminUser();
+
         String resolvedStatus = (status == null) ? "ALL" : status;
         List<AiPromptBinding> bindings = aiPromptBindingMapper.selectList(resolvedStatus);
         return bindings.stream()
@@ -38,6 +40,8 @@ public class AiPromptBindingService {
     }
 
     public AiPromptBindingDetailResponse getDetail(Long bindingId) {
+        adminAuthorizationService.requireAdminUser();
+
         AiPromptBinding binding = aiPromptBindingMapper.selectById(bindingId);
         if (binding == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Binding not found: " + bindingId);

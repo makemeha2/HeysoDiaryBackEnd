@@ -23,6 +23,8 @@ public class AiRuntimeProfileService {
     private final AiRuntimeProfileMapper aiRuntimeProfileMapper;
 
     public List<AiRuntimeProfileListResponse> getList(String status, String domainType) {
+        adminAuthorizationService.requireAdminUser();
+
         String resolvedStatus = (status == null) ? "ALL" : status;
         List<AiRuntimeProfile> profiles = aiRuntimeProfileMapper.selectList(resolvedStatus, domainType);
         return profiles.stream()
