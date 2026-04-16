@@ -13,6 +13,8 @@
 
     <sql id="MonitoringEventWhereClause">
         FROM tb_monitoring_event me
+        LEFT JOIN tb_user u
+            ON u.user_id = me.user_id
         WHERE 1 = 1
         <if test="request.startDate != null">
             AND me.created_at <![CDATA[>=]]> #{request.startDate}
@@ -53,6 +55,7 @@
             me.request_uri,
             me.client_ip,
             me.user_id,
+            u.email AS email,
             me.trace_id,
             me.source_class,
             me.resolved_yn,
@@ -131,4 +134,3 @@
     </update>
 
 </mapper>
-

@@ -23,6 +23,7 @@ public class MonitoringEventListResponse {
     private String requestUri;
     private String clientIp;
     private Long userId;
+    private String email;
     private String traceId;
     private String sourceClass;
     private String resolvedYn;
