@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import heyso.HeysoDiaryBackEnd.monitoring.service.MonitoringEventService;
 import heyso.HeysoDiaryBackEnd.monitoring.support.MonitoringEventCode;
+import heyso.HeysoDiaryBackEnd.userMng.exception.AdminUserConflictException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,9 @@ public class GlobalExceptionLoggingHandler {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", exception.getStatusCode().value());
         response.put("message", exception.getReason());
+        if (exception instanceof AdminUserConflictException adminUserConflictException) {
+            response.put("errorCode", adminUserConflictException.getErrorCode());
+        }
         return ResponseEntity.status(exception.getStatusCode()).body(response);
     }
 
