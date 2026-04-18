@@ -5,8 +5,6 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import heyso.HeysoDiaryBackEnd.aiTemplate.dto.AiPromptBindingCreateRequest;
 import heyso.HeysoDiaryBackEnd.aiTemplate.dto.AiPromptBindingDetailResponse;
@@ -35,8 +32,6 @@ import heyso.HeysoDiaryBackEnd.aiTemplate.dto.AiTemplatePreviewResponse;
 import heyso.HeysoDiaryBackEnd.aiTemplate.service.AiPromptBindingService;
 import heyso.HeysoDiaryBackEnd.aiTemplate.service.AiPromptTemplateService;
 import heyso.HeysoDiaryBackEnd.aiTemplate.service.AiRuntimeProfileService;
-import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
-import heyso.HeysoDiaryBackEnd.user.model.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -45,8 +40,6 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/admin/ai-template")
 @RequiredArgsConstructor
 public class AdminAiTemplateController {
-
-    private static final String ADMIN_SCOPE_AUTHORITY = "SCOPE_admin";
 
     private final AiPromptTemplateService aiPromptTemplateService;
     private final AiRuntimeProfileService aiRuntimeProfileService;
@@ -71,8 +64,7 @@ public class AdminAiTemplateController {
 
     @PostMapping("/templates")
     public ResponseEntity<Void> createTemplate(@Valid @RequestBody AiPromptTemplateCreateRequest request) {
-        Long operatorId = requireAdminUserId();
-        aiPromptTemplateService.create(request, operatorId);
+        aiPromptTemplateService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -80,8 +72,7 @@ public class AdminAiTemplateController {
     public ResponseEntity<Void> updateTemplate(
             @PathVariable Long templateId,
             @Valid @RequestBody AiPromptTemplateUpdateRequest request) {
-        Long operatorId = requireAdminUserId();
-        aiPromptTemplateService.update(templateId, request, operatorId);
+        aiPromptTemplateService.update(templateId, request);
         return ResponseEntity.ok().build();
     }
 
@@ -98,8 +89,7 @@ public class AdminAiTemplateController {
     public ResponseEntity<Void> addTemplateRelation(
             @PathVariable Long templateId,
             @Valid @RequestBody AiPromptTemplateRelCreateRequest request) {
-        Long operatorId = requireAdminUserId();
-        aiPromptTemplateService.addRelation(templateId, request, operatorId);
+        aiPromptTemplateService.addRelation(templateId, request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -107,8 +97,7 @@ public class AdminAiTemplateController {
     public ResponseEntity<Void> deleteTemplateRelation(
             @PathVariable Long templateId,
             @PathVariable Long relId) {
-        Long operatorId = requireAdminUserId();
-        aiPromptTemplateService.deleteRelation(templateId, relId, operatorId);
+        aiPromptTemplateService.deleteRelation(templateId, relId);
         return ResponseEntity.ok().build();
     }
 
@@ -176,24 +165,5 @@ public class AdminAiTemplateController {
             @Valid @RequestBody AiPromptBindingUpdateRequest request) {
         aiPromptBindingService.update(bindingId, request);
         return ResponseEntity.ok().build();
-    }
-
-    // =========================================================================
-    // Internal
-    // =========================================================================
-
-    private Long requireAdminUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean hasAdminScope = authentication != null && authentication.getAuthorities()
-                .stream()
-                .anyMatch(a -> ADMIN_SCOPE_AUTHORITY.equals(a.getAuthority()));
-        if (!hasAdminScope) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin scope required");
-        }
-        User user = SecurityUtils.getCurrentUserOrThrow();
-        if (user.getRole() == null || !"ADMIN".equalsIgnoreCase(user.getRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
-        }
-        return user.getUserId();
     }
 }

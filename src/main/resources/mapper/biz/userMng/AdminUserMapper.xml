@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.userMng.mapper.AdminUserMapper">
+
+    <sql id="AdminUserBaseSelect">
+        SELECT
+            u.user_id,
+            ua.user_auth_id,
+            u.email,
+            u.nickname,
+            u.role,
+            u.status,
+            ua.auth_provider,
+            ua.login_id,
+            ua.provider_user_id,
+            u.created_at,
+            u.updated_at,
+            ua.last_login_at
+        FROM tb_user u
+        LEFT JOIN tb_user_auth ua
+            ON u.user_id = ua.user_id
+    </sql>
+
+    <sql id="AdminUserWhereClause">
+        WHERE 1 = 1
+        <if test="request.role != null and request.role != ''">
+            AND u.role = #{request.role}
+        </if>
+        <if test="request.status != null and request.status != ''">
+            AND u.status = #{request.status}
+        </if>
+        <if test="request.authProvider != null and request.authProvider != ''">
+            AND ua.auth_provider = #{request.authProvider}
+        </if>
+        <if test="request.keyword != null and request.keyword.trim() != ''">
+            AND (
+                u.email LIKE CONCAT('%', #{request.keyword}, '%')
+                OR u.nickname LIKE CONCAT('%', #{request.keyword}, '%')
+                OR ua.login_id LIKE CONCAT('%', #{request.keyword}, '%')
+            )
+        </if>
+    </sql>
+
+    <select id="selectAdminUserPage"
+            resultType="heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserListRow">
+        <include refid="AdminUserBaseSelect"/>
+        <include refid="AdminUserWhereClause"/>
+        ORDER BY u.created_at DESC, u.user_id DESC
+        LIMIT #{request.offset}, #{request.size}
+    </select>
+
+    <select id="countAdminUsers" resultType="long">
+        SELECT COUNT(*)
+        FROM tb_user u
+        LEFT JOIN tb_user_auth ua
+            ON u.user_id = ua.user_id
+        <include refid="AdminUserWhereClause"/>
+    </select>
+
+    <select id="selectAdminUserDetail"
+            resultType="heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserDetailRow">
+        <include refid="AdminUserBaseSelect"/>
+        WHERE u.user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <select id="countOtherActiveAdmins" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_user
+        WHERE role = 'ADMIN'
+          AND status = 'ACTIVE'
+          AND user_id != #{userId}
+    </select>
+
+    <update id="updateAdminUser">
+        UPDATE tb_user
+        SET nickname = #{nickname},
+            role = #{role},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="updateAdminUserStatus">
+        UPDATE tb_user
+        SET status = #{status},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND status != 'WITHDRAWN'
+    </update>
+
+    <update id="updateLocalUserPassword">
+        UPDATE tb_user_auth
+        SET password_hash = #{passwordHash},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND auth_provider = 'LOCAL'
+    </update>
+
+    <delete id="deleteUserById">
+        DELETE FROM tb_user
+        WHERE user_id = #{userId}
+    </delete>
+
+</mapper>

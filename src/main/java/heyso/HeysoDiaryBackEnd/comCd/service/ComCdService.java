@@ -3,12 +3,11 @@ package heyso.HeysoDiaryBackEnd.comCd.service;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import heyso.HeysoDiaryBackEnd.auth.service.AdminAuthorizationService;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.comCd.dto.CommonCodeCreateRequest;
 import heyso.HeysoDiaryBackEnd.comCd.dto.CommonCodeGroupCreateRequest;
@@ -23,16 +22,16 @@ import heyso.HeysoDiaryBackEnd.user.model.User;
 
 @Service
 public class ComCdService {
-    private static final String ADMIN_SCOPE_AUTHORITY = "SCOPE_admin";
-
     private final CommonCodeMapper commonCodeMapper;
+    private final AdminAuthorizationService adminAuthorizationService;
 
-    public ComCdService(CommonCodeMapper commonCodeMapper) {
+    public ComCdService(CommonCodeMapper commonCodeMapper, AdminAuthorizationService adminAuthorizationService) {
         this.commonCodeMapper = commonCodeMapper;
+        this.adminAuthorizationService = adminAuthorizationService;
     }
 
     public List<CommonCodeGroupResponse> getAdminGroupList(String status) {
-        requireAdminUser();
+        adminAuthorizationService.requireAdminUser();
         return commonCodeMapper.selectCommonCodeGroupListForAdmin(resolveIsActiveFilter(status))
                 .stream()
                 .map(CommonCodeGroupResponse::from)
@@ -40,13 +39,13 @@ public class ComCdService {
     }
 
     public CommonCodeGroupResponse getAdminGroupDetail(String groupId) {
-        requireAdminUser();
+        adminAuthorizationService.requireAdminUser();
         return CommonCodeGroupResponse.from(getGroupOrThrow(groupId));
     }
 
     @Transactional
     public void createAdminGroup(CommonCodeGroupCreateRequest request) {
-        User user = requireAdminUser();
+        User user = adminAuthorizationService.requireAdminUser();
 
         CommonCodeGroup existing = commonCodeMapper.selectCommonCodeGroupById(request.getGroupId());
         if (existing != null) {
@@ -66,7 +65,7 @@ public class ComCdService {
 
     @Transactional
     public void updateAdminGroup(String groupId, CommonCodeGroupUpdateRequest request) {
-        User user = requireAdminUser();
+        User user = adminAuthorizationService.requireAdminUser();
         getGroupOrThrow(groupId);
 
         CommonCodeGroup group = CommonCodeGroup.builder()
@@ -81,13 +80,13 @@ public class ComCdService {
 
     @Transactional
     public void deleteAdminGroup(String groupId) {
-        User user = requireAdminUser();
+        User user = adminAuthorizationService.requireAdminUser();
         getGroupOrThrow(groupId);
         commonCodeMapper.deleteCommonCodeGroup(groupId, user.getUserId());
     }
 
     public List<CommonCodeResponse> getAdminCodeList(String groupId, String status) {
-        requireAdminUser();
+        adminAuthorizationService.requireAdminUser();
         getGroupOrThrow(groupId);
         return commonCodeMapper.selectCommonCodeListForAdmin(groupId, resolveIsActiveFilter(status))
                 .stream()
@@ -96,14 +95,14 @@ public class ComCdService {
     }
 
     public CommonCodeResponse getAdminCodeDetail(String groupId, String codeId) {
-        requireAdminUser();
+        adminAuthorizationService.requireAdminUser();
         CommonCode commonCode = getCodeOrThrow(groupId, codeId);
         return CommonCodeResponse.from(commonCode);
     }
 
     @Transactional
     public void createAdminCode(String groupId, CommonCodeCreateRequest request) {
-        User user = requireAdminUser();
+        User user = adminAuthorizationService.requireAdminUser();
         getGroupOrThrow(groupId);
 
         CommonCode existing = commonCodeMapper.selectCommonCodeById(groupId, request.getCodeId());
@@ -128,7 +127,7 @@ public class ComCdService {
 
     @Transactional
     public void updateAdminCode(String groupId, String codeId, CommonCodeUpdateRequest request) {
-        User user = requireAdminUser();
+        User user = adminAuthorizationService.requireAdminUser();
         getCodeOrThrow(groupId, codeId);
 
         CommonCode commonCode = CommonCode.builder()
@@ -147,7 +146,7 @@ public class ComCdService {
 
     @Transactional
     public void deleteAdminCode(String groupId, String codeId) {
-        User user = requireAdminUser();
+        User user = adminAuthorizationService.requireAdminUser();
         getCodeOrThrow(groupId, codeId);
         commonCodeMapper.deleteCommonCode(groupId, codeId, user.getUserId());
     }
@@ -182,22 +181,6 @@ public class ComCdService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Common code not found");
         }
         return commonCode;
-    }
-
-    private User requireAdminUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean hasAdminScope = authentication != null && authentication.getAuthorities()
-                .stream()
-                .anyMatch(authority -> ADMIN_SCOPE_AUTHORITY.equals(authority.getAuthority()));
-        if (!hasAdminScope) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin scope required");
-        }
-
-        User user = SecurityUtils.getCurrentUserOrThrow();
-        if (user.getRole() == null || !"ADMIN".equalsIgnoreCase(user.getRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
-        }
-        return user;
     }
 
     private Boolean resolveIsActiveFilter(String status) {

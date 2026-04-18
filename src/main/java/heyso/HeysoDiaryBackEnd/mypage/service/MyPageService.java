@@ -3,6 +3,7 @@ package heyso.HeysoDiaryBackEnd.mypage.service;
 import java.io.IOException;
 import java.util.Locale;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,7 +67,7 @@ public class MyPageService {
 
         UserProfile userProfile = UserProfile.builder()
                 .userId(user.getUserId())
-                .nickname(request.getNickname() != null ? request.getNickname().trim() : null)
+                .nickname(StringUtils.trim(request.getNickname()))
                 .mbti(normalizeMbti(request.getMbti()))
                 .build();
 

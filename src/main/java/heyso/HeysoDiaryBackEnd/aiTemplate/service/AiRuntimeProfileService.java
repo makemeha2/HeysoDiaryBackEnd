@@ -4,8 +4,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -14,19 +12,19 @@ import heyso.HeysoDiaryBackEnd.aiTemplate.dto.AiRuntimeProfileListResponse;
 import heyso.HeysoDiaryBackEnd.aiTemplate.dto.AiRuntimeProfileUpdateRequest;
 import heyso.HeysoDiaryBackEnd.aiTemplate.mapper.AiRuntimeProfileMapper;
 import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiRuntimeProfile;
-import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
-import heyso.HeysoDiaryBackEnd.user.model.User;
+import heyso.HeysoDiaryBackEnd.auth.service.AdminAuthorizationService;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class AiRuntimeProfileService {
 
-    private static final String ADMIN_SCOPE_AUTHORITY = "SCOPE_admin";
-
+    private final AdminAuthorizationService adminAuthorizationService;
     private final AiRuntimeProfileMapper aiRuntimeProfileMapper;
 
     public List<AiRuntimeProfileListResponse> getList(String status, String domainType) {
+        adminAuthorizationService.requireAdminUser();
+
         String resolvedStatus = (status == null) ? "ALL" : status;
         List<AiRuntimeProfile> profiles = aiRuntimeProfileMapper.selectList(resolvedStatus, domainType);
         return profiles.stream()
@@ -35,7 +33,7 @@ public class AiRuntimeProfileService {
     }
 
     public void create(AiRuntimeProfileCreateRequest request) {
-        Long operatorId = requireAdminUserId();
+        Long operatorId = adminAuthorizationService.requireAdminUserId();
 
         AiRuntimeProfile profile = AiRuntimeProfile.builder()
                 .profileKey(request.getProfileKey())
@@ -57,7 +55,7 @@ public class AiRuntimeProfileService {
     }
 
     public void update(Long runtimeProfileId, AiRuntimeProfileUpdateRequest request) {
-        Long operatorId = requireAdminUserId();
+        Long operatorId = adminAuthorizationService.requireAdminUserId();
 
         AiRuntimeProfile existing = aiRuntimeProfileMapper.selectById(runtimeProfileId);
         if (existing == null) {
@@ -78,21 +76,6 @@ public class AiRuntimeProfileService {
         existing.setUpdatedId(operatorId);
 
         aiRuntimeProfileMapper.update(existing);
-    }
-
-    private Long requireAdminUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean hasAdminScope = authentication != null && authentication.getAuthorities()
-                .stream()
-                .anyMatch(a -> ADMIN_SCOPE_AUTHORITY.equals(a.getAuthority()));
-        if (!hasAdminScope) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin scope required");
-        }
-        User user = SecurityUtils.getCurrentUserOrThrow();
-        if (user.getRole() == null || !"ADMIN".equalsIgnoreCase(user.getRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
-        }
-        return user.getUserId();
     }
 
     private AiRuntimeProfileListResponse toListResponse(AiRuntimeProfile p) {
