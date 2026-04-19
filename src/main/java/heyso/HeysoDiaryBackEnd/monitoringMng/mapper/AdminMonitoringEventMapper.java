@@ -18,6 +18,12 @@ public interface AdminMonitoringEventMapper {
 
     MonitoringEventDetailResponse selectMonitoringEventDetail(@Param("eventId") Long eventId);
 
+    List<MonitoringEventDetailResponse> selectSimilarMonitoringEvents(
+            @Param("title") String title,
+            @Param("message") String message,
+            @Param("excludeEventId") Long excludeEventId,
+            @Param("limit") int limit);
+
     List<MonitoringEvent> selectMonitoringEventsByIds(@Param("eventIds") List<Long> eventIds);
 
     int updateMonitoringEventResolution(
