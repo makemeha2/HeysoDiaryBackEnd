@@ -12,13 +12,16 @@ import heyso.HeysoDiaryBackEnd.ai.client.AiClient;
 import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
 import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.config.AppAiProperties;
 
 @Component
 public class AiCallExecutor {
 
     private final Map<AiProvider, AiClient> clientsByProvider = new EnumMap<>(AiProvider.class);
+    private final AppAiProperties appAiProperties;
 
-    public AiCallExecutor(List<AiClient> clients) {
+    public AiCallExecutor(List<AiClient> clients, AppAiProperties appAiProperties) {
+        this.appAiProperties = appAiProperties;
         for (AiClient client : clients) {
             clientsByProvider.put(client.provider(), client);
         }
@@ -29,7 +32,9 @@ public class AiCallExecutor {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AI request is required");
         }
 
-        AiProvider provider = request.provider() == null ? AiProvider.OPENAI : request.provider();
+        AiProvider provider = request.provider() == null
+                ? appAiProperties.getDefaultProvider()
+                : request.provider();
         AiClient client = clientsByProvider.get(provider);
         if (client == null) {
             throw new ResponseStatusException(

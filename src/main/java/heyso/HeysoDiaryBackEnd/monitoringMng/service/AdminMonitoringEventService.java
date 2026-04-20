@@ -154,7 +154,8 @@ public class AdminMonitoringEventService {
 
         try {
             return aiCallExecutor.call(AiRequest.builder()
-                    .provider(AiProvider.OPENAI)
+                    .provider(AiProvider.CLAUDE)
+                    .model("haiku")
                     .messages(messages)
                     .temperature(0.3)
                     .maxTokens(1500)

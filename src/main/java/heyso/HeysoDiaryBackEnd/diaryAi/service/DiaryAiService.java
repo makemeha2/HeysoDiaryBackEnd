@@ -17,9 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
-import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
 import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.config.AppAiProperties;
 import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
@@ -55,8 +55,6 @@ public class DiaryAiService {
     private static final int CONTEXT_DIARY_SNIPPET_MAX = 500;
     private static final int CONTEXT_BLOCK_MAX = 6_000;
 
-    private static final String DEFAULT_MODEL = "gpt-4o";
-
     // private static final String MENTOR_SYSTEM_PROMPT = """
     // 너는 사용자의 일기를 읽고 따뜻하고 성실한 멘토처럼 댓글을 남기는 AI다.
     // - 공감 → 관찰 → 제안 순서로, 짧지만 밀도 있게 작성하라.
@@ -76,6 +74,7 @@ public class DiaryAiService {
 
     private final DiaryMapper diaryMapper;
     private final DiaryAiMapper diaryAiMapper;
+    private final AppAiProperties appAiProperties;
 
     @Transactional
     public DiaryAiCommentCreateResponse createAiComment(Long diaryId) {
@@ -83,7 +82,7 @@ public class DiaryAiService {
         DiaryAiCommentCreateRequest request = new DiaryAiCommentCreateRequest();
         request.setRecentLimit(DEFAULT_RECENT_LIMIT);
         request.setTagLimit(DEFAULT_TAG_LIMIT);
-        request.setModel(DEFAULT_MODEL);
+        request.setModel(appAiProperties.getDefaultDiaryCommentModel());
 
         return createAiComment(diaryId, request);
     }
@@ -123,7 +122,9 @@ public class DiaryAiService {
 
         String promptHash = sha256(promptSystem + "\n---\n" + promptUser);
 
-        String model = StringUtils.isBlank(request.getModel()) ? DEFAULT_MODEL : request.getModel().trim();
+        String model = StringUtils.isBlank(request.getModel())
+                ? appAiProperties.getDefaultDiaryCommentModel()
+                : request.getModel().trim();
 
         // 실행 기록 먼저 저장 (실패/성공 모두 추적)
         DiaryAiRun run = DiaryAiRun.builder()
@@ -264,7 +265,7 @@ public class DiaryAiService {
 
         try {
             result = aiCallExecutor.call(AiRequest.builder()
-                    .provider(AiProvider.OPENAI)
+                    .provider(appAiProperties.getDefaultProvider())
                     .model(model)
                     .messages(messages)
                     .temperature(request.getTemperature())
@@ -272,14 +273,14 @@ public class DiaryAiService {
                     .maxTokens(request.getMaxOutputTokens())
                     .build());
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed: " + e.getMessage());
         }
 
         String content = result.content();
 
         // 응답 본문 검증
         if (StringUtils.isBlank(content)) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI returned empty assistant content");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI returned empty assistant content");
         }
 
         String requestId = result.requestId();
@@ -289,7 +290,7 @@ public class DiaryAiService {
 
         return new AiResponse(
                 content.trim(),
-                AiProvider.OPENAI,
+                result.provider(),
                 model,
                 requestId,
                 promptTokens,

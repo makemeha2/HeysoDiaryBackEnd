@@ -12,7 +12,7 @@ public class ChatConversationCreateRequest {
     private String title;
 
     @Size(max = 50)
-    private String model = "gpt-4o-mini";
+    private String model;
 
     private String systemPrompt;
 }

@@ -151,6 +151,12 @@
 			<version>1.0.0-M6</version>
 			<scope>compile</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-anthropic-spring-boot-starter</artifactId>
+			<version>1.0.0-M6</version>
+			<scope>compile</scope>
+		</dependency>
 
 		<!-- 문자열 및 스트링 처리를 위한 도구 -->
 		<dependency>

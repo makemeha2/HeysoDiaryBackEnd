@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -34,9 +33,9 @@ import heyso.HeysoDiaryBackEnd.aichat.model.ChatConversationSummary;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatMessage;
 import heyso.HeysoDiaryBackEnd.aichat.model.ChatUsageLog;
 import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
-import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
 import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.config.AppAiProperties;
 import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.user.model.User;
@@ -48,15 +47,10 @@ public class AiChatService {
     private final AiChatMapper aiChatMapper;
     private final AiChatDtoMapper dtoMapper;
     private final AiCallExecutor aiCallExecutor;
+    private final AppAiProperties appAiProperties;
 
     private int SUMMARY_UPDATE_THRESHOLD = 10;
     private int SUMMARY_MAX_APPEND_MESSAGES = 10;
-
-    @Value("${app.ai.context-message-limit:10}")
-    private int contextMessageLimit;
-
-    @Value("${app.ai.summary-prefix:Conversation summary:\n}")
-    private String summaryPrefix;
 
     // 채팅방 목록을 가져온다.
     public ChatConversationListResponse listConversations(ChatConversationListRequest request) {
@@ -82,7 +76,7 @@ public class AiChatService {
         ChatConversation conversation = ChatConversation.builder()
                 .userId(user.getUserId())
                 .title(request.getTitle())
-                .model(request.getModel())
+                .model(StringUtils.defaultIfBlank(request.getModel(), appAiProperties.getDefaultChatModel()))
                 .systemPrompt(request.getSystemPrompt())
                 .build();
 
@@ -253,10 +247,12 @@ public class AiChatService {
 
         ChatConversationSummary summary = aiChatMapper.selectSummaryByUser(user.getUserId(), conversationId);
         if (summary != null && summary.getSummary() != null && !summary.getSummary().isBlank()) {
-            input.add(new AiMessage("developer", summaryPrefix + summary.getSummary()));
+            input.add(new AiMessage("developer", appAiProperties.getSummaryPrefix() + summary.getSummary()));
         }
 
-        List<ChatMessage> recentDesc = aiChatMapper.selectRecentMessages(conversationId, contextMessageLimit);
+        List<ChatMessage> recentDesc = aiChatMapper.selectRecentMessages(
+                conversationId,
+                appAiProperties.getContextMessageLimit());
         Collections.reverse(recentDesc); // 시간순 정렬(오래된 -> 최신)
 
         for (ChatMessage m : recentDesc) {
@@ -270,19 +266,19 @@ public class AiChatService {
 
         // 3) OpenAI 호출
         String model = (conversation.getModel() == null || conversation.getModel().isBlank())
-                ? "gpt-4o-mini"
+                ? appAiProperties.getDefaultChatModel()
                 : conversation.getModel();
 
         AiResponse result = null;
         try {
             result = aiCallExecutor.call(AiRequest.builder()
-                    .provider(AiProvider.OPENAI)
+                    .provider(appAiProperties.getDefaultProvider())
                     .model(model)
                     .messages(input)
                     .build());
         } catch (Exception e) {
-            // OpenAI 장애/네트워크 오류 시: USER 메시지는 남아있고 ASSISTANT는 없을 수 있음
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
+            // AI 장애/네트워크 오류 시: USER 메시지는 남아있고 ASSISTANT는 없을 수 있음
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed: " + e.getMessage());
         }
 
         String assistantText = result.content();
@@ -292,7 +288,7 @@ public class AiChatService {
         Integer totalTokens = result.totalTokens();
 
         if (assistantText == null || assistantText.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI returned empty assistant content");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI returned empty assistant content");
         }
 
         // 4) ASSISTANT 메시지 저장
@@ -376,13 +372,13 @@ public class AiChatService {
         AiResponse updatedSummaryResponse;
         try {
             updatedSummaryResponse = aiCallExecutor.call(AiRequest.builder()
-                    .provider(AiProvider.OPENAI)
-                    .model("gpt-4o-2024-08-06")
+                    .provider(appAiProperties.getDefaultProvider())
+                    .model(appAiProperties.getDefaultSummaryModel())
                     .messages(input)
                     .build());
         } catch (Exception e) {
-            // OpenAI 장애/네트워크 오류 시: USER 메시지는 남아있고 ASSISTANT는 없을 수 있음
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
+            // AI 장애/네트워크 오류 시: USER 메시지는 남아있고 ASSISTANT는 없을 수 있음
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed: " + e.getMessage());
         }
 
         String updatedSummary = updatedSummaryResponse.content();
