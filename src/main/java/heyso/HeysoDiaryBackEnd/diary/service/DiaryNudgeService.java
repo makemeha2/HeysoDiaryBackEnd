@@ -11,9 +11,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
-import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
 import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.config.AppAiProperties;
 import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryNudgeResponse;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
@@ -30,7 +30,6 @@ public class DiaryNudgeService {
     private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
     private static final int MESSAGE_TEXT_MAX = 255;
     private static final int DIARY_SNIPPET_MAX = 1000;
-    private static final String DEFAULT_MODEL = "gpt-4o";
 
     private static final String NUDGE_SYSTEM_PROMPT = """
             너는 사용자의 일기 내용을 바탕으로 오늘 하루를 정리하는 일기를 쓸수 있게 도와주는 안부 질문을 만든다.
@@ -41,6 +40,7 @@ public class DiaryNudgeService {
 
     private final DiaryMapper diaryMapper;
     private final AiCallExecutor aiCallExecutor;
+    private final AppAiProperties appAiProperties;
 
     @Async("nudgeExecutor")
     public CompletableFuture<DiaryNudgeResponse> createTodayNudgeAsync(Long userId) {
@@ -76,8 +76,8 @@ public class DiaryNudgeService {
         AiResponse response;
         try {
             response = aiCallExecutor.call(AiRequest.builder()
-                    .provider(AiProvider.OPENAI)
-                    .model(DEFAULT_MODEL)
+                    .provider(appAiProperties.getDefaultProvider())
+                    .model(appAiProperties.getDefaultDiaryNudgeModel())
                     .messages(messages)
                     .build());
         } catch (Exception e) {

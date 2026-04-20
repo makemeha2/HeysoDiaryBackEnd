@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
-import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
 import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.config.AppAiProperties;
 import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import lombok.RequiredArgsConstructor;
 
@@ -18,10 +18,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DiaryAiPolishAiClient {
 
-    private static final String DEFAULT_MODEL = "gpt-4o-mini";
     private static final int MAX_OUTPUT_TOKENS = 2500;
 
     private final AiCallExecutor aiCallExecutor;
+    private final AppAiProperties appAiProperties;
     private final DiaryAiPolishPromptFactory promptFactory;
 
     public AiResponse polish(String originalContent) {
@@ -31,8 +31,8 @@ public class DiaryAiPolishAiClient {
 
         try {
             AiResponse result = aiCallExecutor.call(AiRequest.builder()
-                    .provider(AiProvider.OPENAI)
-                    .model(DEFAULT_MODEL)
+                    .provider(appAiProperties.getDefaultProvider())
+                    .model(appAiProperties.getDefaultDiaryPolishModel())
                     .messages(messages)
                     .temperature(0.2)
                     .maxTokens(MAX_OUTPUT_TOKENS)
@@ -59,7 +59,7 @@ public class DiaryAiPolishAiClient {
     }
 
     public String getDefaultModel() {
-        return DEFAULT_MODEL;
+        return appAiProperties.getDefaultDiaryPolishModel();
     }
 
     private String sanitizeResponse(String content) {

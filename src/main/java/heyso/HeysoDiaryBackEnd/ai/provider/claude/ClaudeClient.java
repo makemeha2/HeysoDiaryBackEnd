@@ -1,17 +1,18 @@
-package heyso.HeysoDiaryBackEnd.ai.provider.openai;
+package heyso.HeysoDiaryBackEnd.ai.provider.claude;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.ai.anthropic.AnthropicChatOptions;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.metadata.EmptyUsage;
 import org.springframework.ai.chat.metadata.Usage;
-import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,20 +22,21 @@ import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
 import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
 import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
-import org.springframework.ai.chat.client.ChatClient;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
-public class OpenAiClient implements AiClient {
+public class ClaudeClient implements AiClient {
 
     private final ChatClient chatClient;
 
-    public OpenAiClient(@Qualifier("openAiChatClient") ChatClient chatClient) {
+    public ClaudeClient(@Qualifier("claudeChatClient") ChatClient chatClient) {
         this.chatClient = chatClient;
     }
 
     @Override
     public AiProvider provider() {
-        return AiProvider.OPENAI;
+        return AiProvider.CLAUDE;
     }
 
     @Override
@@ -43,9 +45,13 @@ public class OpenAiClient implements AiClient {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AI request is required");
         }
 
+        String key = System.getenv("CLAUDE_API_KEY");
+        log.info("Claude API key present={}, length={}", key != null, key == null ? 0 : key.length());
+
         List<Message> springMessages = toSpringMessages(request.messages());
 
-        ChatOptions.Builder optionsBuilder = ChatOptions.builder().model(request.model());
+        AnthropicChatOptions.Builder optionsBuilder = AnthropicChatOptions.builder()
+                .model(request.model());
         if (request.temperature() != null) {
             optionsBuilder.temperature(request.temperature());
         }
@@ -55,10 +61,13 @@ public class OpenAiClient implements AiClient {
         if (request.maxTokens() != null) {
             optionsBuilder.maxTokens(request.maxTokens());
         }
+        AnthropicChatOptions options = optionsBuilder.build();
+
+        log.info("Claude API request payload: {}", buildRequestLog(request));
 
         var responseSpec = chatClient.prompt()
                 .messages(springMessages)
-                .options(optionsBuilder.build())
+                .options(options)
                 .call();
 
         var chatResponse = responseSpec.chatResponse();
@@ -88,9 +97,13 @@ public class OpenAiClient implements AiClient {
             // usage 파싱 실패 시 본문 우선 반환
         }
 
+        log.info(
+                "Claude API response summary: requestId={}, model={}, promptTokens={}, completionTokens={}, totalTokens={}, contentLength={}",
+                requestId, request.model(), promptTokens, completionTokens, totalTokens, content.length());
+
         return new AiResponse(
                 content,
-                AiProvider.OPENAI,
+                AiProvider.CLAUDE,
                 request.model(),
                 requestId,
                 promptTokens,
@@ -119,5 +132,55 @@ public class OpenAiClient implements AiClient {
             }
         }
         return springMessages;
+    }
+
+    private String buildRequestLog(AiRequest request) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("{provider=").append(request.provider());
+        builder.append(", model=").append(request.model());
+        builder.append(", temperature=").append(request.temperature());
+        builder.append(", topP=").append(request.topP());
+        builder.append(", maxTokens=").append(request.maxTokens());
+        builder.append(", messages=").append(formatMessages(request.messages()));
+        builder.append('}');
+        return builder.toString();
+    }
+
+    private String formatMessages(List<AiMessage> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return "[]";
+        }
+
+        StringBuilder builder = new StringBuilder("[");
+        for (int i = 0; i < messages.size(); i++) {
+            AiMessage message = messages.get(i);
+            if (i > 0) {
+                builder.append(", ");
+            }
+
+            if (message == null) {
+                builder.append("{role=null, content=null}");
+                continue;
+            }
+
+            builder.append("{role=").append(message.role())
+                    .append(", content=").append(quote(message.content()))
+                    .append("}");
+        }
+        builder.append(']');
+        return builder.toString();
+    }
+
+    private String quote(String value) {
+        if (value == null) {
+            return "null";
+        }
+
+        return '"'
+                + value.replace("\\", "\\\\")
+                        .replace("\"", "\\\"")
+                        .replace("\r", "\\r")
+                        .replace("\n", "\\n")
+                + '"';
     }
 }

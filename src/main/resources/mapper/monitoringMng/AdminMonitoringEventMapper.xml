@@ -102,6 +102,41 @@
         WHERE me.event_id = #{eventId}
     </select>
 
+    <select id="selectSimilarMonitoringEvents"
+            resultType="heyso.HeysoDiaryBackEnd.monitoringMng.dto.MonitoringEventDetailResponse">
+        SELECT
+            me.event_id,
+            me.created_at,
+            me.event_type,
+            me.severity,
+            me.event_code,
+            me.title,
+            me.request_uri,
+            me.client_ip,
+            me.user_id,
+            me.trace_id,
+            me.source_class,
+            me.resolved_yn,
+            me.resolved_at,
+            me.resolved_by,
+            me.message,
+            me.detail_json,
+            me.http_method,
+            me.query_string,
+            me.user_agent,
+            me.exception_class,
+            me.exception_message,
+            me.stack_trace,
+            me.source_method,
+            me.updated_at
+        FROM tb_monitoring_event me
+        WHERE me.title = #{title}
+          AND me.message = #{message}
+          AND me.event_id <![CDATA[<>]]> #{excludeEventId}
+        ORDER BY me.created_at DESC, me.event_id DESC
+        LIMIT #{limit}
+    </select>
+
     <select id="selectMonitoringEventsByIds" resultMap="MonitoringEventModelResultMap">
         SELECT
             me.event_id,

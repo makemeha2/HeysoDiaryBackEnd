@@ -5,10 +5,13 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import heyso.HeysoDiaryBackEnd.auth.service.AdminAuthorizationService;
+import heyso.HeysoDiaryBackEnd.monitoringMng.dto.MonitoringEventDiagnoseResponse;
 import heyso.HeysoDiaryBackEnd.monitoringMng.dto.MonitoringEventDetailResponse;
 import heyso.HeysoDiaryBackEnd.monitoringMng.dto.MonitoringEventPageResponse;
 import heyso.HeysoDiaryBackEnd.monitoringMng.dto.MonitoringEventResolutionRequest;
@@ -25,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 public class AdminMonitoringEventController {
 
     private final AdminMonitoringEventService adminMonitoringEventService;
+    private final AdminAuthorizationService adminAuthorizationService;
 
     @GetMapping
     public ResponseEntity<MonitoringEventPageResponse> getMonitoringEventPage(@Valid MonitoringEventSearchRequest request) {
@@ -34,6 +38,11 @@ public class AdminMonitoringEventController {
     @GetMapping("/{eventId}")
     public ResponseEntity<MonitoringEventDetailResponse> getMonitoringEventDetail(@PathVariable Long eventId) {
         return ResponseEntity.ok(adminMonitoringEventService.getMonitoringEventDetail(eventId));
+    }
+
+    @PostMapping("/{eventId}/diagnose")
+    public ResponseEntity<MonitoringEventDiagnoseResponse> diagnoseMonitoringEvent(@PathVariable Long eventId) {
+        return ResponseEntity.ok(adminMonitoringEventService.diagnoseMonitoringEvent(eventId));
     }
 
     @PatchMapping("/resolution")
