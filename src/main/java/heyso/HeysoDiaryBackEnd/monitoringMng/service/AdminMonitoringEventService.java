@@ -1,5 +1,7 @@
 package heyso.HeysoDiaryBackEnd.monitoringMng.service;
 
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -7,8 +9,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.ai.retry.NonTransientAiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,12 +34,15 @@ import heyso.HeysoDiaryBackEnd.monitoringMng.mapper.AdminMonitoringEventMapper;
 import heyso.HeysoDiaryBackEnd.monitoringMng.utils.StackTraceUtils;
 import heyso.HeysoDiaryBackEnd.user.model.User;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AdminMonitoringEventService {
 
     private static final int SIMILAR_EVENT_LIMIT = 3;
+    private static final String DIAGNOSIS_MODEL = "claude-haiku-4-5-20251001";
     private static final String DIAGNOSIS_SYSTEM_PROMPT = """
             당신은 서버 에러 로그를 분석하는 전문가입니다. 제공된 로그를 보고 에러 발생 원인과 해결 방법을 한국어로 설명하세요.
             """;
@@ -89,7 +96,7 @@ public class AdminMonitoringEventService {
 
         String diagnosis = callDiagnosisAi(detail, similarEvents).content();
         if (StringUtils.isBlank(diagnosis)) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI returned empty assistant content");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Claude returned empty assistant content");
         }
 
         return MonitoringEventDiagnoseResponse.builder()
@@ -148,6 +155,7 @@ public class AdminMonitoringEventService {
 
     private AiResponse callDiagnosisAi(MonitoringEventDetailResponse detail,
             List<MonitoringEventDetailResponse> similarEvents) {
+        String model = DIAGNOSIS_MODEL;
         List<AiMessage> messages = new ArrayList<>();
         messages.add(new AiMessage("system", DIAGNOSIS_SYSTEM_PROMPT));
         messages.add(new AiMessage("user", buildDiagnosisUserPrompt(detail, similarEvents)));
@@ -155,14 +163,72 @@ public class AdminMonitoringEventService {
         try {
             return aiCallExecutor.call(AiRequest.builder()
                     .provider(AiProvider.CLAUDE)
-                    .model("haiku")
+                    .model(model)
                     .messages(messages)
                     .temperature(0.3)
-                    .maxTokens(1500)
+                    .maxTokens(3000)
                     .build());
+        } catch (NonTransientAiException e) {
+            if (isAuthenticationFailure(e)) {
+                log.error("Claude diagnosis authentication failure. eventId={}, model={}, message={}",
+                        detail.getEventId(), model, e.getMessage(), e);
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                        "Claude authentication failed. Check CLAUDE_API_KEY and Anthropic credentials.");
+            }
+
+            log.error("Claude diagnosis non-retryable AI failure. eventId={}, model={}, message={}",
+                    detail.getEventId(), model, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "Claude request failed due to a non-retryable AI error.");
+        } catch (ResourceAccessException e) {
+            if (hasCause(e, UnknownHostException.class)) {
+                log.error("Claude diagnosis DNS resolution failure. eventId={}, host=api.anthropic.com, message={}",
+                        detail.getEventId(), e.getMessage(), e);
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                        "Claude request failed due to DNS resolution. Check network or DNS settings.");
+            }
+
+            if (hasCause(e, SocketTimeoutException.class)) {
+                log.error("Claude diagnosis timeout. eventId={}, model={}, message={}",
+                        detail.getEventId(), model, e.getMessage(), e);
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                        "Claude request timed out. Please retry.");
+            }
+
+            log.error("Claude diagnosis network access failure. eventId={}, model={}, message={}",
+                    detail.getEventId(), model, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "Claude request failed due to a network access error.");
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
+            log.error("Claude diagnosis unexpected failure. eventId={}, model={}, message={}",
+                    detail.getEventId(), model, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Claude request failed: " + e.getMessage());
         }
+    }
+
+    private boolean isAuthenticationFailure(Throwable throwable) {
+        String message = throwable == null ? null : throwable.getMessage();
+        if (StringUtils.isBlank(message)) {
+            return false;
+        }
+
+        String normalized = message.toLowerCase();
+        return normalized.contains("401")
+                || normalized.contains("authentication_error")
+                || normalized.contains("x-api-key")
+                || normalized.contains("api key")
+                || normalized.contains("unauthorized");
+    }
+
+    private boolean hasCause(Throwable throwable, Class<? extends Throwable> targetType) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (targetType.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private String buildDiagnosisUserPrompt(MonitoringEventDetailResponse detail,

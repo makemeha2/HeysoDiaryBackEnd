@@ -40,7 +40,7 @@ spring:
       chat:
         enabled: true
         options:
-          model: claude-3-7-sonnet-latest
+          model: claude-haiku-4-5-20251001
           temperature: 0.7
 
 mybatis:
