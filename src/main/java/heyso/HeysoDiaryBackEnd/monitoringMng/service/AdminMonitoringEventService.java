@@ -17,10 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
-import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
 import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
 import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
+import heyso.HeysoDiaryBackEnd.ai.support.AiModelResolver;
+import heyso.HeysoDiaryBackEnd.ai.support.AiModelResolver.ResolvedModel;
+import heyso.HeysoDiaryBackEnd.ai.support.AiPromptResolver;
+import heyso.HeysoDiaryBackEnd.ai.support.AiPromptResolver.BindingResolution;
 import heyso.HeysoDiaryBackEnd.auth.service.AdminAuthorizationService;
 import heyso.HeysoDiaryBackEnd.monitoring.model.MonitoringEvent;
 import heyso.HeysoDiaryBackEnd.monitoringMng.dto.MonitoringEventDiagnoseResponse;
@@ -42,14 +45,14 @@ import lombok.extern.slf4j.Slf4j;
 public class AdminMonitoringEventService {
 
     private static final int SIMILAR_EVENT_LIMIT = 3;
-    private static final String DIAGNOSIS_MODEL = "claude-haiku-4-5-20251001";
-    private static final String DIAGNOSIS_SYSTEM_PROMPT = """
-            당신은 서버 에러 로그를 분석하는 전문가입니다. 제공된 로그를 보고 에러 발생 원인과 해결 방법을 한국어로 설명하세요.
-            """;
+    private static final String BINDING_DOMAIN = "MNT_DIAG";
+    private static final String BINDING_FEATURE = "DIAGNOSE";
 
     private final AdminAuthorizationService adminAuthorizationService;
     private final AdminMonitoringEventMapper adminMonitoringEventMapper;
     private final AiCallExecutor aiCallExecutor;
+    private final AiPromptResolver aiPromptResolver;
+    private final AiModelResolver aiModelResolver;
 
     @Transactional(readOnly = true)
     public MonitoringEventPageResponse getMonitoringEventPage(MonitoringEventSearchRequest request) {
@@ -94,9 +97,15 @@ public class AdminMonitoringEventService {
                 eventId,
                 SIMILAR_EVENT_LIMIT);
 
-        String diagnosis = callDiagnosisAi(detail, similarEvents).content();
+        Map<String, String> variables = Map.of(
+                "current_event", formatEventBlock(detail),
+                "similar_events", formatSimilarEventsBlock(similarEvents));
+        BindingResolution resolution = aiPromptResolver.resolve(BINDING_DOMAIN, BINDING_FEATURE, variables);
+        ResolvedModel resolvedModel = aiModelResolver.resolve(resolution.profile());
+
+        String diagnosis = callDiagnosisAi(detail, resolution, resolvedModel).content();
         if (StringUtils.isBlank(diagnosis)) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Claude returned empty assistant content");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI returned empty assistant content");
         }
 
         return MonitoringEventDiagnoseResponse.builder()
@@ -154,55 +163,63 @@ public class AdminMonitoringEventService {
     }
 
     private AiResponse callDiagnosisAi(MonitoringEventDetailResponse detail,
-            List<MonitoringEventDetailResponse> similarEvents) {
-        String model = DIAGNOSIS_MODEL;
+            BindingResolution resolution,
+            ResolvedModel resolvedModel) {
         List<AiMessage> messages = new ArrayList<>();
-        messages.add(new AiMessage("system", DIAGNOSIS_SYSTEM_PROMPT));
-        messages.add(new AiMessage("user", buildDiagnosisUserPrompt(detail, similarEvents)));
+        messages.add(new AiMessage("system", resolution.renderedSystemPrompt()));
+        messages.add(new AiMessage("user", resolution.renderedUserPrompt()));
 
         try {
+            Double temperature = resolution.profile().getTemperature() == null
+                    ? null
+                    : resolution.profile().getTemperature().doubleValue();
+            Double topP = resolution.profile().getTopP() == null
+                    ? null
+                    : resolution.profile().getTopP().doubleValue();
+
             return aiCallExecutor.call(AiRequest.builder()
-                    .provider(AiProvider.CLAUDE)
-                    .model(model)
+                    .provider(resolvedModel.provider())
+                    .model(resolvedModel.model())
                     .messages(messages)
-                    .temperature(0.3)
-                    .maxTokens(3000)
+                    .temperature(temperature)
+                    .topP(topP)
+                    .maxTokens(resolution.profile().getMaxTokens())
                     .build());
         } catch (NonTransientAiException e) {
             if (isAuthenticationFailure(e)) {
-                log.error("Claude diagnosis authentication failure. eventId={}, model={}, message={}",
-                        detail.getEventId(), model, e.getMessage(), e);
+                log.error("AI diagnosis authentication failure. eventId={}, model={}, message={}",
+                        detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                        "Claude authentication failed. Check CLAUDE_API_KEY and Anthropic credentials.");
+                        "AI authentication failed. Check provider credentials and API key configuration.");
             }
 
-            log.error("Claude diagnosis non-retryable AI failure. eventId={}, model={}, message={}",
-                    detail.getEventId(), model, e.getMessage(), e);
+            log.error("AI diagnosis non-retryable AI failure. eventId={}, model={}, message={}",
+                    detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "Claude request failed due to a non-retryable AI error.");
+                    "AI request failed due to a non-retryable AI error.");
         } catch (ResourceAccessException e) {
             if (hasCause(e, UnknownHostException.class)) {
-                log.error("Claude diagnosis DNS resolution failure. eventId={}, host=api.anthropic.com, message={}",
-                        detail.getEventId(), e.getMessage(), e);
+                log.error("AI diagnosis DNS resolution failure. eventId={}, model={}, message={}",
+                        detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                        "Claude request failed due to DNS resolution. Check network or DNS settings.");
+                        "AI request failed due to DNS resolution. Check network or DNS settings.");
             }
 
             if (hasCause(e, SocketTimeoutException.class)) {
-                log.error("Claude diagnosis timeout. eventId={}, model={}, message={}",
-                        detail.getEventId(), model, e.getMessage(), e);
+                log.error("AI diagnosis timeout. eventId={}, model={}, message={}",
+                        detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                        "Claude request timed out. Please retry.");
+                        "AI request timed out. Please retry.");
             }
 
-            log.error("Claude diagnosis network access failure. eventId={}, model={}, message={}",
-                    detail.getEventId(), model, e.getMessage(), e);
+            log.error("AI diagnosis network access failure. eventId={}, model={}, message={}",
+                    detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "Claude request failed due to a network access error.");
+                    "AI request failed due to a network access error.");
         } catch (Exception e) {
-            log.error("Claude diagnosis unexpected failure. eventId={}, model={}, message={}",
-                    detail.getEventId(), model, e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Claude request failed: " + e.getMessage());
+            log.error("AI diagnosis unexpected failure. eventId={}, model={}, message={}",
+                    detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed: " + e.getMessage());
         }
     }
 
@@ -231,29 +248,25 @@ public class AdminMonitoringEventService {
         return false;
     }
 
-    private String buildDiagnosisUserPrompt(MonitoringEventDetailResponse detail,
-            List<MonitoringEventDetailResponse> similarEvents) {
+    private String formatEventBlock(MonitoringEventDetailResponse event) {
         StringBuilder prompt = new StringBuilder();
-        prompt.append("[현재 이벤트]\n");
-        appendEventBlock(prompt, detail);
+        appendEventBlock(prompt, event);
+        return prompt.toString();
+    }
 
+    private String formatSimilarEventsBlock(List<MonitoringEventDetailResponse> similarEvents) {
         if (similarEvents == null || similarEvents.isEmpty()) {
-            prompt.append("\n[유사 이벤트]\n없음\n");
-        } else {
-            prompt.append("\n[유사 이벤트 목록]\n");
-            for (int i = 0; i < similarEvents.size(); i++) {
-                prompt.append("\n(").append(i + 1).append(")\n");
-                appendEventBlock(prompt, similarEvents.get(i));
-            }
+            return "없음";
         }
 
-        prompt.append("""
-
-                위 정보를 바탕으로 아래 형식에 맞춰 한국어로 답변하세요.
-                1. 추정 원인
-                2. 확인이 필요한 포인트
-                3. 해결 방법 또는 대응 방안
-                """);
+        StringBuilder prompt = new StringBuilder();
+        for (int i = 0; i < similarEvents.size(); i++) {
+            if (i > 0) {
+                prompt.append('\n');
+            }
+            prompt.append('(').append(i + 1).append(")\n");
+            appendEventBlock(prompt, similarEvents.get(i));
+        }
         return prompt.toString();
     }
 

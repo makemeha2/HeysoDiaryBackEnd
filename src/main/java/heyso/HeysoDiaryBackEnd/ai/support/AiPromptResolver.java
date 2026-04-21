@@ -9,7 +9,9 @@ import heyso.HeysoDiaryBackEnd.aiTemplate.mapper.AiRuntimeProfileMapper;
 import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptBinding;
 import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiRuntimeProfile;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AiPromptResolver {
@@ -38,6 +40,8 @@ public class AiPromptResolver {
 
         String renderedSystemPrompt = aiTemplateRenderer.render(binding.getSystemTemplateId(), variables);
         String renderedUserPrompt = aiTemplateRenderer.render(binding.getUserTemplateId(), variables);
+
+        log.info(":::: renderedUserPrompt : {}", renderedUserPrompt);
 
         return new BindingResolution(binding, profile, renderedSystemPrompt, renderedUserPrompt);
     }
