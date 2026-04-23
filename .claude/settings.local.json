@@ -4,7 +4,9 @@
       "Bash(mvn -q compile -DskipTests)",
       "Bash(mvn compile:*)",
       "Bash(mvn clean:*)",
-      "Bash(mvn test:*)"
+      "Bash(mvn test:*)",
+      "Bash(mvn spring-boot:run)",
+      "Bash(javap -v \"c:/Projects/HeysoDiary/HeysoDiaryBackEnd/target/classes/heyso/HeysoDiaryBackEnd/userMng/mapper/AdminUserResponseMapperImpl.class\")"
     ]
   }
 }

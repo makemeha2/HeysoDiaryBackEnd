@@ -1,6 +1,7 @@
 package heyso.HeysoDiaryBackEnd.userMng.service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,7 @@ import heyso.HeysoDiaryBackEnd.user.model.UserAuth;
 import heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserCreateRequest;
 import heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserDetailResponse;
 import heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserDetailRow;
+import heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserListResponse;
 import heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserListRow;
 import heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserPageResponse;
 import heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserPasswordResetRequest;
@@ -25,7 +27,6 @@ import heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserStatusUpdateRequest;
 import heyso.HeysoDiaryBackEnd.userMng.dto.AdminUserUpdateRequest;
 import heyso.HeysoDiaryBackEnd.userMng.exception.AdminUserConflictException;
 import heyso.HeysoDiaryBackEnd.userMng.mapper.AdminUserMapper;
-import heyso.HeysoDiaryBackEnd.userMng.mapper.AdminUserResponseMapper;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -40,7 +41,6 @@ public class AdminUserService {
     private final AdminAuthorizationService adminAuthorizationService;
     private final UserMapper userMapper;
     private final AdminUserMapper adminUserMapper;
-    private final AdminUserResponseMapper adminUserResponseMapper;
 
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -53,7 +53,7 @@ public class AdminUserService {
         int totalPages = totalCount == 0 ? 0 : (int) Math.ceil((double) totalCount / request.getSize());
 
         return AdminUserPageResponse.builder()
-                .items(adminUserResponseMapper.toListResponses(rows))
+                .items(rows.stream().map(this::toListResponse).collect(Collectors.toList()))
                 .page(request.getPage())
                 .size(request.getSize())
                 .totalCount(totalCount)
@@ -66,7 +66,7 @@ public class AdminUserService {
         adminAuthorizationService.requireAdminUser();
 
         AdminUserDetailRow detailRow = getAdminUserOrThrow(userId);
-        return adminUserResponseMapper.toDetailResponse(detailRow);
+        return toDetailResponse(detailRow);
     }
 
     @Transactional
@@ -172,7 +172,38 @@ public class AdminUserService {
     }
 
     private AdminUserDetailResponse getAdminUserDetailResponse(Long userId) {
-        return adminUserResponseMapper.toDetailResponse(getAdminUserOrThrow(userId));
+        return toDetailResponse(getAdminUserOrThrow(userId));
+    }
+
+    private AdminUserListResponse toListResponse(AdminUserListRow row) {
+        AdminUserListResponse res = new AdminUserListResponse();
+        res.setUserId(row.getUserId());
+        res.setEmail(row.getEmail());
+        res.setNickname(row.getNickname());
+        res.setRole(row.getRole());
+        res.setStatus(row.getStatus());
+        res.setAuthProvider(row.getAuthProvider());
+        res.setLoginId(row.getLoginId());
+        res.setCreatedAt(row.getCreatedAt());
+        res.setLastLoginAt(row.getLastLoginAt());
+        return res;
+    }
+
+    private AdminUserDetailResponse toDetailResponse(AdminUserDetailRow row) {
+        AdminUserDetailResponse res = new AdminUserDetailResponse();
+        res.setUserId(row.getUserId());
+        res.setUserAuthId(row.getUserAuthId());
+        res.setEmail(row.getEmail());
+        res.setNickname(row.getNickname());
+        res.setRole(row.getRole());
+        res.setStatus(row.getStatus());
+        res.setAuthProvider(row.getAuthProvider());
+        res.setLoginId(row.getLoginId());
+        res.setProviderUserId(row.getProviderUserId());
+        res.setCreatedAt(row.getCreatedAt());
+        res.setUpdatedAt(row.getUpdatedAt());
+        res.setLastLoginAt(row.getLastLoginAt());
+        return res;
     }
 
     private AdminUserDetailRow getMutableAdminUserOrThrow(Long userId) {

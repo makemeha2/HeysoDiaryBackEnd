@@ -19,6 +19,7 @@ import heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishDailyUsage;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishResult;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.support.DiaryAiPolishAiClient;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.type.DiaryAiPolishFailureCode;
+import heyso.HeysoDiaryBackEnd.diaryAiPolish.type.DiaryAiPolishMode;
 import heyso.HeysoDiaryBackEnd.user.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +45,8 @@ public class DiaryAiPolishService {
         validateContent(content);
         validateDiaryAccessIfPresent(user.getUserId(), diaryId);
 
+        DiaryAiPolishMode mode = request.getMode() != null ? request.getMode() : DiaryAiPolishMode.defaultMode();
+
         LocalDate usageDate = LocalDate.now(KOREA_ZONE);
         Long polishLogId = persistenceService.createRequestLog(user.getUserId(), diaryId, content.length());
 
@@ -53,7 +56,7 @@ public class DiaryAiPolishService {
             DiaryAiPolishDailyUsage usage = persistenceService.reserveUsage(user.getUserId(), usageDate, DAILY_LIMIT);
             usageReserved = true;
 
-            AiResponse aiCallResult = diaryAiPolishAiClient.polish(content);
+            AiResponse aiCallResult = diaryAiPolishAiClient.polish(content, mode);
             DiaryAiPolishResult result = persistenceService.saveSuccess(
                     polishLogId,
                     user.getUserId(),

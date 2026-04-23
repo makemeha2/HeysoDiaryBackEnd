@@ -14,6 +14,7 @@ import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
 import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.ai.support.AiModelResolver;
 import heyso.HeysoDiaryBackEnd.ai.support.AiPromptResolver;
+import heyso.HeysoDiaryBackEnd.diaryAiPolish.type.DiaryAiPolishMode;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -21,15 +22,15 @@ import lombok.RequiredArgsConstructor;
 public class DiaryAiPolishAiClient {
 
     private static final String BINDING_DOMAIN = "DIARY_AI_POLISH";
-    private static final String BINDING_FEATURE = "POLISH";
 
     private final AiCallExecutor aiCallExecutor;
     private final AiPromptResolver aiPromptResolver;
     private final AiModelResolver aiModelResolver;
 
-    public AiResponse polish(String originalContent) {
+    public AiResponse polish(String originalContent, DiaryAiPolishMode mode) {
         Map<String, String> variables = Map.of("original_content", originalContent);
-        AiPromptResolver.BindingResolution resolution = aiPromptResolver.resolve(BINDING_DOMAIN, BINDING_FEATURE,
+        String featureKey = mode.getFeatureKey();
+        AiPromptResolver.BindingResolution resolution = aiPromptResolver.resolve(BINDING_DOMAIN, featureKey,
                 variables);
 
         AiModelResolver.ResolvedModel resolvedModel = aiModelResolver.resolve(resolution.profile());
