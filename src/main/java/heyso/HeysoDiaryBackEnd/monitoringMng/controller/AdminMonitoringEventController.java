@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import heyso.HeysoDiaryBackEnd.auth.service.AdminAuthorizationService;
 import heyso.HeysoDiaryBackEnd.monitoringMng.dto.MonitoringEventDiagnoseResponse;
 import heyso.HeysoDiaryBackEnd.monitoringMng.dto.MonitoringEventDetailResponse;
 import heyso.HeysoDiaryBackEnd.monitoringMng.dto.MonitoringEventPageResponse;
@@ -28,10 +27,10 @@ import lombok.RequiredArgsConstructor;
 public class AdminMonitoringEventController {
 
     private final AdminMonitoringEventService adminMonitoringEventService;
-    private final AdminAuthorizationService adminAuthorizationService;
 
     @GetMapping
-    public ResponseEntity<MonitoringEventPageResponse> getMonitoringEventPage(@Valid MonitoringEventSearchRequest request) {
+    public ResponseEntity<MonitoringEventPageResponse> getMonitoringEventPage(
+            @Valid MonitoringEventSearchRequest request) {
         return ResponseEntity.ok(adminMonitoringEventService.getMonitoringEventPage(request));
     }
 

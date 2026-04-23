@@ -34,6 +34,7 @@ import heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishDailyUsage;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishResult;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.support.DiaryAiPolishAiClient;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.type.DiaryAiPolishFailureCode;
+import heyso.HeysoDiaryBackEnd.diaryAiPolish.type.DiaryAiPolishMode;
 import heyso.HeysoDiaryBackEnd.user.model.User;
 
 @ExtendWith(MockitoExtension.class)
@@ -113,7 +114,7 @@ class DiaryAiPolishServiceTest {
         when(diaryMapper.selectDiaryById(10L)).thenReturn(ownedDiary(10L, 1L));
         when(persistenceService.createRequestLog(1L, 10L, 60)).thenReturn(102L);
         when(persistenceService.reserveUsage(eq(1L), any(LocalDate.class), eq(3))).thenReturn(usage);
-        when(diaryAiPolishAiClient.polish("a".repeat(60)))
+        when(diaryAiPolishAiClient.polish("a".repeat(60), DiaryAiPolishMode.STRICT))
                 .thenThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI polish request failed"));
         when(persistenceService.resolveFailureCode(any())).thenReturn(DiaryAiPolishFailureCode.AI_CALL_FAILED);
 
@@ -140,7 +141,7 @@ class DiaryAiPolishServiceTest {
         when(diaryMapper.selectDiaryById(10L)).thenReturn(ownedDiary(10L, 1L));
         when(persistenceService.createRequestLog(1L, 10L, 60)).thenReturn(103L);
         when(persistenceService.reserveUsage(eq(1L), any(LocalDate.class), eq(3))).thenReturn(usage);
-        when(diaryAiPolishAiClient.polish("a".repeat(60)))
+        when(diaryAiPolishAiClient.polish("a".repeat(60), DiaryAiPolishMode.RELAXED))
                 .thenReturn(new AiResponse("polished", AiProvider.OPENAI, "gpt-4o-mini", "req-1", 1, 1, 2));
         when(persistenceService.saveSuccess(103L, 1L, 10L, "a".repeat(60), "polished")).thenReturn(result);
 
