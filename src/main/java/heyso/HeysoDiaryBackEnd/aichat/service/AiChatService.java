@@ -38,6 +38,8 @@ import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
 import heyso.HeysoDiaryBackEnd.ai.config.AppAiProperties;
 import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
+import heyso.HeysoDiaryBackEnd.monitoring.service.MonitoringEventService;
+import heyso.HeysoDiaryBackEnd.monitoring.support.MonitoringEventCode;
 import heyso.HeysoDiaryBackEnd.user.model.User;
 import lombok.RequiredArgsConstructor;
 
@@ -48,6 +50,7 @@ public class AiChatService {
     private final AiChatDtoMapper dtoMapper;
     private final AiCallExecutor aiCallExecutor;
     private final AppAiProperties appAiProperties;
+    private final MonitoringEventService monitoringEventService;
 
     private int SUMMARY_UPDATE_THRESHOLD = 10;
     private int SUMMARY_MAX_APPEND_MESSAGES = 10;
@@ -278,7 +281,8 @@ public class AiChatService {
                     .build());
         } catch (Exception e) {
             // AI 장애/네트워크 오류 시: USER 메시지는 남아있고 ASSISTANT는 없을 수 있음
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed: " + e.getMessage());
+            monitoringEventService.logError(MonitoringEventCode.AI_CALL_FAIL.name(), "AI chat assistant reply failed", e, null);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed");
         }
 
         String assistantText = result.content();
@@ -378,7 +382,8 @@ public class AiChatService {
                     .build());
         } catch (Exception e) {
             // AI 장애/네트워크 오류 시: USER 메시지는 남아있고 ASSISTANT는 없을 수 있음
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed: " + e.getMessage());
+            monitoringEventService.logError(MonitoringEventCode.AI_CALL_FAIL.name(), "AI chat summary update failed", e, null);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed");
         }
 
         String updatedSummary = updatedSummaryResponse.content();

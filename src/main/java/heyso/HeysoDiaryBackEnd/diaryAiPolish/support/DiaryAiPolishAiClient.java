@@ -15,6 +15,8 @@ import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.ai.support.AiModelResolver;
 import heyso.HeysoDiaryBackEnd.ai.support.AiPromptResolver;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.type.DiaryAiPolishMode;
+import heyso.HeysoDiaryBackEnd.monitoring.service.MonitoringEventService;
+import heyso.HeysoDiaryBackEnd.monitoring.support.MonitoringEventCode;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -26,6 +28,7 @@ public class DiaryAiPolishAiClient {
     private final AiCallExecutor aiCallExecutor;
     private final AiPromptResolver aiPromptResolver;
     private final AiModelResolver aiModelResolver;
+    private final MonitoringEventService monitoringEventService;
 
     public AiResponse polish(String originalContent, DiaryAiPolishMode mode) {
         Map<String, String> variables = Map.of("original_content", originalContent);
@@ -73,7 +76,8 @@ public class DiaryAiPolishAiClient {
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI polish request failed", e);
+            monitoringEventService.logError(MonitoringEventCode.AI_CALL_FAIL.name(), "AI polish call failed", e, null);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI polish request failed");
         }
     }
 
