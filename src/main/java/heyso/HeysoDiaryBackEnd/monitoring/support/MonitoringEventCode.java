@@ -19,6 +19,8 @@ public enum MonitoringEventCode {
     BIZ_DELETED_RESOURCE_ACCESS,
     // 성공 처리됐지만 의심스러운 비즈니스 이벤트
     BIZ_SUSPICIOUS_SUCCESS,
+    // AI API 호출 실패 (장애·타임아웃·쿼터 소진 등)
+    AI_CALL_FAIL,
     // 기본값
     UNKNOWN_EVENT
 }

@@ -1,7 +1,5 @@
 package heyso.HeysoDiaryBackEnd.monitoringMng.service;
 
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -9,10 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.ai.retry.NonTransientAiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -169,6 +165,9 @@ public class AdminMonitoringEventService {
         messages.add(new AiMessage("system", resolution.renderedSystemPrompt()));
         messages.add(new AiMessage("user", resolution.renderedUserPrompt()));
 
+        // 이 메서드는 monitoring 이벤트를 AI로 진단하는 기능이다.
+        // AI 호출 실패 시 monitoring 테이블에 재기록하면 무한 재귀 루프 위험이 있으므로,
+        // 의도적으로 MonitoringEventService를 호출하지 않고 SLF4J 로그만 남긴다.
         try {
             Double temperature = resolution.profile().getTemperature() == null
                     ? null
@@ -185,67 +184,11 @@ public class AdminMonitoringEventService {
                     .topP(topP)
                     .maxTokens(resolution.profile().getMaxTokens())
                     .build());
-        } catch (NonTransientAiException e) {
-            if (isAuthenticationFailure(e)) {
-                log.error("AI diagnosis authentication failure. eventId={}, model={}, message={}",
-                        detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                        "AI authentication failed. Check provider credentials and API key configuration.");
-            }
-
-            log.error("AI diagnosis non-retryable AI failure. eventId={}, model={}, message={}",
-                    detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "AI request failed due to a non-retryable AI error.");
-        } catch (ResourceAccessException e) {
-            if (hasCause(e, UnknownHostException.class)) {
-                log.error("AI diagnosis DNS resolution failure. eventId={}, model={}, message={}",
-                        detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                        "AI request failed due to DNS resolution. Check network or DNS settings.");
-            }
-
-            if (hasCause(e, SocketTimeoutException.class)) {
-                log.error("AI diagnosis timeout. eventId={}, model={}, message={}",
-                        detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                        "AI request timed out. Please retry.");
-            }
-
-            log.error("AI diagnosis network access failure. eventId={}, model={}, message={}",
-                    detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "AI request failed due to a network access error.");
         } catch (Exception e) {
-            log.error("AI diagnosis unexpected failure. eventId={}, model={}, message={}",
+            log.error("AI diagnosis call failed. eventId={}, model={}, message={}",
                     detail.getEventId(), resolvedModel.model(), e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed");
         }
-    }
-
-    private boolean isAuthenticationFailure(Throwable throwable) {
-        String message = throwable == null ? null : throwable.getMessage();
-        if (StringUtils.isBlank(message)) {
-            return false;
-        }
-
-        String normalized = message.toLowerCase();
-        return normalized.contains("401")
-                || normalized.contains("authentication_error")
-                || normalized.contains("x-api-key")
-                || normalized.contains("api key")
-                || normalized.contains("unauthorized");
-    }
-
-    private boolean hasCause(Throwable throwable, Class<? extends Throwable> targetType) {
-        Throwable current = throwable;
-        while (current != null) {
-            if (targetType.isInstance(current)) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
     }
 
     private String formatEventBlock(MonitoringEventDetailResponse event) {

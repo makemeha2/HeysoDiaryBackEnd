@@ -20,6 +20,8 @@ import heyso.HeysoDiaryBackEnd.diary.dto.DiaryNudgeResponse;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.Diary;
 import heyso.HeysoDiaryBackEnd.diary.model.DiaryNudgeEventLog;
+import heyso.HeysoDiaryBackEnd.monitoring.service.MonitoringEventService;
+import heyso.HeysoDiaryBackEnd.monitoring.support.MonitoringEventCode;
 import heyso.HeysoDiaryBackEnd.utils.DateUtil;
 import heyso.HeysoDiaryBackEnd.utils.TextSnippetUtil;
 import lombok.AllArgsConstructor;
@@ -39,6 +41,7 @@ public class DiaryNudgeService {
     private final AiCallExecutor aiCallExecutor;
     private final AiPromptResolver aiPromptResolver;
     private final AiModelResolver aiModelResolver;
+    private final MonitoringEventService monitoringEventService;
 
     @Async("nudgeExecutor")
     public CompletableFuture<DiaryNudgeResponse> createTodayNudgeAsync(Long userId) {
@@ -98,6 +101,7 @@ public class DiaryNudgeService {
             }
             return content.trim();
         } catch (Exception e) {
+            monitoringEventService.logError(MonitoringEventCode.AI_CALL_FAIL.name(), "AI nudge call failed", e, null);
             return null;
         }
     }

@@ -37,6 +37,8 @@ import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiRunStatus;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiSourceType;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiTriggerType;
 import heyso.HeysoDiaryBackEnd.user.model.User;
+import heyso.HeysoDiaryBackEnd.monitoring.service.MonitoringEventService;
+import heyso.HeysoDiaryBackEnd.monitoring.support.MonitoringEventCode;
 import heyso.HeysoDiaryBackEnd.utils.TextSnippetUtil;
 import lombok.RequiredArgsConstructor;
 
@@ -45,6 +47,7 @@ import lombok.RequiredArgsConstructor;
 public class DiaryAiService {
 
     private final AiCallExecutor aiCallExecutor;
+    private final MonitoringEventService monitoringEventService;
 
     private static final int DEFAULT_RECENT_LIMIT = 10;
     private static final int DEFAULT_TAG_LIMIT = 10;
@@ -273,7 +276,8 @@ public class DiaryAiService {
                     .maxTokens(request.getMaxOutputTokens())
                     .build());
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed: " + e.getMessage());
+            monitoringEventService.logError(MonitoringEventCode.AI_CALL_FAIL.name(), "AI mentor call failed", e, null);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed");
         }
 
         String content = result.content();
