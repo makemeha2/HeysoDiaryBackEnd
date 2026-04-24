@@ -2,8 +2,8 @@ package heyso.HeysoDiaryBackEnd.diary.service;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.lang3.StringUtils;
@@ -13,8 +13,9 @@ import org.springframework.stereotype.Service;
 import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
 import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
-import heyso.HeysoDiaryBackEnd.ai.config.AppAiProperties;
 import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
+import heyso.HeysoDiaryBackEnd.ai.support.AiModelResolver;
+import heyso.HeysoDiaryBackEnd.ai.support.AiPromptResolver;
 import heyso.HeysoDiaryBackEnd.diary.dto.DiaryNudgeResponse;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.Diary;
@@ -31,16 +32,13 @@ public class DiaryNudgeService {
     private static final int MESSAGE_TEXT_MAX = 255;
     private static final int DIARY_SNIPPET_MAX = 1000;
 
-    private static final String NUDGE_SYSTEM_PROMPT = """
-            너는 사용자의 일기 내용을 바탕으로 오늘 하루를 정리하는 일기를 쓸수 있게 도와주는 안부 질문을 만든다.
-            - 1~2문장, 한국어
-            - 출력은 '메시지 텍스트'만 반환할 것 (마크다운 불필요)
-            - 사용자가 메세지를 읽고 일기 작성을 하고 싶어지도록 노굴적이거나 직접적이지 않은 메세지도 포함시켜도 된다.
-            """;
+    private static final String BINDING_DOMAIN = "DIARY_NUDGE";
+    private static final String BINDING_FEATURE = "NUDGE";
 
     private final DiaryMapper diaryMapper;
     private final AiCallExecutor aiCallExecutor;
-    private final AppAiProperties appAiProperties;
+    private final AiPromptResolver aiPromptResolver;
+    private final AiModelResolver aiModelResolver;
 
     @Async("nudgeExecutor")
     public CompletableFuture<DiaryNudgeResponse> createTodayNudgeAsync(Long userId) {
@@ -67,44 +65,59 @@ public class DiaryNudgeService {
     }
 
     private String callNudgeModel(Diary diary) {
-        String promptUser = buildUserPrompt(diary);
-
-        List<AiMessage> messages = new ArrayList<>();
-        messages.add(new AiMessage("developer", NUDGE_SYSTEM_PROMPT));
-        messages.add(new AiMessage("user", promptUser));
-
-        AiResponse response;
         try {
-            response = aiCallExecutor.call(AiRequest.builder()
-                    .provider(appAiProperties.getDefaultProvider())
-                    .model(appAiProperties.getDefaultDiaryNudgeModel())
+            Map<String, String> variables = buildVariables(diary);
+            AiPromptResolver.BindingResolution resolution = aiPromptResolver.resolve(
+                    BINDING_DOMAIN, BINDING_FEATURE, variables);
+            AiModelResolver.ResolvedModel resolvedModel = aiModelResolver.resolve(resolution.profile());
+
+            List<AiMessage> messages = List.of(
+                    new AiMessage("system", resolution.renderedSystemPrompt()),
+                    new AiMessage("user", resolution.renderedUserPrompt()));
+
+            Double temperature = resolution.profile().getTemperature() != null
+                    ? resolution.profile().getTemperature().doubleValue()
+                    : null;
+            Double topP = resolution.profile().getTopP() != null
+                    ? resolution.profile().getTopP().doubleValue()
+                    : null;
+            Integer maxTokens = normalizeMaxTokens(resolution.profile().getMaxTokens());
+
+            AiResponse response = aiCallExecutor.call(AiRequest.builder()
+                    .provider(resolvedModel.provider())
+                    .model(resolvedModel.model())
                     .messages(messages)
+                    .temperature(temperature)
+                    .topP(topP)
+                    .maxTokens(maxTokens)
                     .build());
+
+            String content = response.content();
+            if (StringUtils.isBlank(content)) {
+                return null;
+            }
+            return content.trim();
         } catch (Exception e) {
             return null;
         }
-
-        String content = response.content();
-        if (StringUtils.isBlank(content)) {
-            return null;
-        }
-        return content.trim();
     }
 
-    private String buildUserPrompt(Diary diary) {
+    private Map<String, String> buildVariables(Diary diary) {
         String diaryDate = diary.getDiaryDate() == null ? "" : diary.getDiaryDate().toString();
         String title = StringUtils.defaultString(diary.getTitle());
         String snippet = TextSnippetUtil.normalizeAndLimit(diary.getContentMd(), DIARY_SNIPPET_MAX);
 
-        return """
-                [오늘 이전 최신 일기]
-                날짜: %s
-                제목: %s
-                내용:
-                %s
+        return Map.of(
+                "diary_date", diaryDate,
+                "title", title,
+                "content_snippet", snippet);
+    }
 
-                위 내용을 바탕으로 짧게 안부로 말을 건낼 수 있는 질문을 던져줘.
-                """.formatted(diaryDate, title, snippet);
+    private Integer normalizeMaxTokens(Integer maxTokens) {
+        if (maxTokens == null || maxTokens <= 0) {
+            return null;
+        }
+        return maxTokens;
     }
 
     private void insertEventLogSafely(Long userId, LocalDate localDate, DiaryNudgeResponse response) {
