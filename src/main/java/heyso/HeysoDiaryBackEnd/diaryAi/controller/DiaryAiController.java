@@ -12,10 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import heyso.HeysoDiaryBackEnd.diaryAi.service.DiaryAiService;
+import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiCommentCreateRequest;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiCommentCreateResponse;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiCommentListItemResponse;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiFeedbackCreateRequest;
+import heyso.HeysoDiaryBackEnd.diaryAi.service.DiaryAiService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 
@@ -30,18 +31,12 @@ public class DiaryAiController {
         this.diaryAiService = diaryAiService;
     }
 
-    // @PostMapping("/{diaryId}/ai-comment")
-    // public ResponseEntity<DiaryAiCommentCreateResponse>
-    // createAiComment(@PathVariable Long diaryId,
-    // @Valid @RequestBody DiaryAiCommentCreateRequest request) {
-    // DiaryAiCommentCreateResponse response =
-    // diaryAiService.createAiComment(diaryId, request);
-    // return ResponseEntity.status(201).body(response);
-    // }
-
     @PostMapping("/{diaryId}/ai-comment")
-    public ResponseEntity<DiaryAiCommentCreateResponse> createAiComment(@PathVariable Long diaryId) {
-        DiaryAiCommentCreateResponse response = diaryAiService.createAiComment(diaryId);
+    public ResponseEntity<DiaryAiCommentCreateResponse> createAiComment(@PathVariable Long diaryId,
+            @Valid @RequestBody(required = false) DiaryAiCommentCreateRequest request) {
+        DiaryAiCommentCreateResponse response = request == null
+                ? diaryAiService.createAiComment(diaryId)
+                : diaryAiService.createAiComment(diaryId, request);
         return ResponseEntity.status(201).body(response);
     }
 

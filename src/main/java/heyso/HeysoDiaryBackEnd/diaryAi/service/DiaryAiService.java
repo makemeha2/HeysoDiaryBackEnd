@@ -16,19 +16,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
-import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
-import heyso.HeysoDiaryBackEnd.ai.config.AppAiProperties;
-import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
-import heyso.HeysoDiaryBackEnd.diaryAi.mapper.DiaryAiMapper;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiCommentCreateRequest;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiCommentCreateResponse;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiCommentListItemResponse;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiFeedbackCreateRequest;
+import heyso.HeysoDiaryBackEnd.diaryAi.mapper.DiaryAiMapper;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiComment;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiFeedback;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiRun;
@@ -36,9 +32,15 @@ import heyso.HeysoDiaryBackEnd.diaryAi.model.DiaryAiRunContext;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiRunStatus;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiSourceType;
 import heyso.HeysoDiaryBackEnd.diaryAi.model.enums.DiaryAiTriggerType;
-import heyso.HeysoDiaryBackEnd.user.model.User;
+import heyso.HeysoDiaryBackEnd.diaryAi.support.DiaryAiCallInput;
+import heyso.HeysoDiaryBackEnd.diaryAi.support.DiaryAiClient;
+import heyso.HeysoDiaryBackEnd.diaryAi.support.DiaryAiResolution;
 import heyso.HeysoDiaryBackEnd.monitoring.service.MonitoringEventService;
-import heyso.HeysoDiaryBackEnd.monitoring.support.MonitoringEventCode;
+import heyso.HeysoDiaryBackEnd.mypage.mapper.UserAIFeedbackSettingMapper;
+import heyso.HeysoDiaryBackEnd.mypage.mapper.UserProfileMapper;
+import heyso.HeysoDiaryBackEnd.mypage.model.UserAIFeedbackSetting;
+import heyso.HeysoDiaryBackEnd.mypage.model.UserProfile;
+import heyso.HeysoDiaryBackEnd.user.model.User;
 import heyso.HeysoDiaryBackEnd.utils.TextSnippetUtil;
 import lombok.RequiredArgsConstructor;
 
@@ -46,53 +48,64 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DiaryAiService {
 
-    private final AiCallExecutor aiCallExecutor;
-    private final MonitoringEventService monitoringEventService;
+    private final DiaryAiClient diaryAiClient;
+    private final DiaryMapper diaryMapper;
+    private final DiaryAiMapper diaryAiMapper;
+    private final UserProfileMapper userProfileMapper;
+    private final UserAIFeedbackSettingMapper userAIFeedbackSettingMapper;
 
-    private static final int DEFAULT_RECENT_LIMIT = 10;
-    private static final int DEFAULT_TAG_LIMIT = 10;
+    // 컨텍스트 수집 기본 한도 (최근 일기 / 태그 연관 일기 / 전체 합산)
+    private static final int DEFAULT_RECENT_LIMIT = 3;
+    private static final int DEFAULT_TAG_LIMIT = 5;
     private static final int DEFAULT_TOTAL_CONTEXT_LIMIT = 20;
     private static final int DEFAULT_COMMENT_LIST_LIMIT = 10;
 
-    private static final int TODAY_DIARY_SNIPPET_MAX = 1_600;
-    private static final int CONTEXT_DIARY_SNIPPET_MAX = 500;
-    private static final int CONTEXT_BLOCK_MAX = 6_000;
+    // 프롬프트에 삽입할 텍스트 길이 상한 (토큰 비용·품질 균형)
+    private static final int TODAY_DIARY_SNIPPET_MAX = 1_600; // 오늘 일기 본문
+    private static final int CONTEXT_DIARY_SNIPPET_MAX = 500; // 과거 일기 1건당 스니펫
+    private static final int CONTEXT_BLOCK_MAX = 6_000; // 컨텍스트 블록 전체
 
-    // private static final String MENTOR_SYSTEM_PROMPT = """
-    // 너는 사용자의 일기를 읽고 따뜻하고 성실한 멘토처럼 댓글을 남기는 AI다.
-    // - 공감 → 관찰 → 제안 순서로, 짧지만 밀도 있게 작성하라.
-    // - 사실을 지어내지 말고, 주어진 정보에 근거해라.
-    // - 위험하거나 민감한 조언(의학/법률/투자)은 피하고, 필요 시 전문가 상담을 권유하라.
-    // - 비난하거나 단정하지 말고, 선택지를 제시하는 어조를 유지하라.
-    // - 출력은 Markdown으로 작성하라.
-    // """;
-    private static final String MENTOR_SYSTEM_PROMPT = """
-            너는 사용자의 일기를 읽고 따뜻하고 성실한 멘토처럼 댓글을 남기는 AI다.
-            - 공감 → 관찰 → 제안 순서로, 짧지만 밀도 있게 작성하라.
-            - 사실을 지어내지 말고, 주어진 정보에 근거해라.
-            - 비난하거나 단정하지 말고, 선택지를 제시하는 어조를 유지하라.
-            - 너무 뻔한 말은 아니였으면 좋겠다.
-            - [과거 일기 컨텍스트]에서 유의미한 연관내용이 있으면 그 맥락도 같이 연관하여 작성하라.
-            """;
+    // =========================================================================
+    // AI 댓글 생성
+    // =========================================================================
 
-    private final DiaryMapper diaryMapper;
-    private final DiaryAiMapper diaryAiMapper;
-    private final AppAiProperties appAiProperties;
-
+    /** 기본 파라미터로 AI 댓글을 생성한다 (버튼 트리거). */
     @Transactional
     public DiaryAiCommentCreateResponse createAiComment(Long diaryId) {
-
         DiaryAiCommentCreateRequest request = new DiaryAiCommentCreateRequest();
         request.setRecentLimit(DEFAULT_RECENT_LIMIT);
         request.setTagLimit(DEFAULT_TAG_LIMIT);
-        request.setModel(appAiProperties.getDefaultDiaryCommentModel());
-
         return createAiComment(diaryId, request);
     }
 
+    /**
+     * AI 멘토 댓글을 생성하고 저장한다.
+     *
+     * <pre>
+     * 전체 처리 흐름:
+     *
+     *   [준비 단계]
+     *   2. 과거 일기 수집 (최근 + 태그 연관)
+     *   3. 컨텍스트 블록 문자열 조립 (buildContextBlock)
+     *   4. 사용자 프로필·AI 피드백 설정 조회 (개인화 입력 데이터)
+     *
+     *   [1단계 - 프롬프트 해석 (AI 호출 전 감사 데이터 확정)]
+     *   5. DiaryAiClient.resolve() 호출
+     *      → 사용자 설정을 변수 맵으로 변환 후 DB 템플릿에 치환
+     *      → 렌더된 시스템/유저 프롬프트 + 모델 정보 확보
+     *   6. 확정된 프롬프트·모델 정보로 tb_diary_ai_run 실행 기록 선행 저장 (status=RUNNING)
+     *      → AI 호출 실패 시에도 어떤 프롬프트로 시도했는지 추적 가능
+     *
+     *   [2단계 - AI 호출]
+     *   7. DiaryAiClient.execute() 로 AI API 호출
+     *   8. 댓글 저장(tb_diary_ai_comment) + 실행 기록 SUCCESS 업데이트
+     *
+     *   [예외 처리]
+     *   - AI 호출 실패 시 tb_diary_ai_run 을 ERROR 로 마감하고 예외 재전파
+     * </pre>
+     */
     @Transactional
     public DiaryAiCommentCreateResponse createAiComment(Long diaryId, DiaryAiCommentCreateRequest request) {
-        // 인증 사용자 확인 및 일기 접근 권한 검증
         User user = SecurityUtils.getCurrentUserOrThrow();
 
         DiarySummary diary = diaryMapper.selectDiaryById(diaryId);
@@ -103,12 +116,11 @@ public class DiaryAiService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot access this diary");
         }
 
-        // 컨텍스트 구성 파라미터 정규화
+        // 2. 컨텍스트 수집 파라미터 정규화
         int recentLimit = Objects.requireNonNullElse(request.getRecentLimit(), DEFAULT_RECENT_LIMIT);
         int tagLimit = Objects.requireNonNullElse(request.getTagLimit(), DEFAULT_TAG_LIMIT);
         int totalContextLimit = DEFAULT_TOTAL_CONTEXT_LIMIT;
 
-        // 최근 일기 + 태그 연관 일기에서 컨텍스트 후보 수집
         List<String> tagNames = diaryMapper.selectTagNamesByDiaryId(diaryId);
 
         List<DiarySummary> recentDiaries = diaryMapper.selectRecentDiaries(user.getUserId(), diaryId, recentLimit);
@@ -116,31 +128,44 @@ public class DiaryAiService {
                 ? List.of()
                 : diaryMapper.selectDiariesByTags(user.getUserId(), diaryId, tagNames, tagLimit);
 
+        // 3. 중복 제거 후 컨텍스트 목록 조합, 시스템 프롬프트 {{context_block}} 에 삽입할 문자열 생성
         List<DiaryAiRunContext> contexts = buildContexts(recentDiaries, tagDiaries, totalContextLimit);
-
-        // 시스템/유저 프롬프트 생성 및 해시 계산
         String contextBlock = buildContextBlock(contexts, recentDiaries, tagDiaries);
-        String promptSystem = buildSystemPrompt(contextBlock);
-        String promptUser = buildUserPrompt(diary, request);
 
-        String promptHash = sha256(promptSystem + "\n---\n" + promptUser);
+        // 4. 개인화 데이터 조회 (없으면 DiaryAiClient 가 기본값으로 처리)
+        UserProfile userProfile = userProfileMapper.selectUserProfileByUserId(user.getUserId());
+        UserAIFeedbackSetting feedbackSetting = userAIFeedbackSettingMapper
+                .selectUserAIFeedbackSettingByUserId(user.getUserId());
 
-        String model = StringUtils.isBlank(request.getModel())
-                ? appAiProperties.getDefaultDiaryCommentModel()
-                : request.getModel().trim();
+        // 오늘 일기 데이터 준비 (유저 프롬프트 변수로 사용)
+        String diaryDate = diary.getDiaryDate() == null ? "" : diary.getDiaryDate().toString();
+        String diaryTitle = StringUtils.defaultString(diary.getTitle());
+        String diaryContent = TextSnippetUtil.normalizeAndLimit(diary.getContentMd(), TODAY_DIARY_SNIPPET_MAX);
 
-        // 실행 기록 먼저 저장 (실패/성공 모두 추적)
+        // 5. [1단계] 프롬프트 해석 — AI 호출 없이 렌더된 프롬프트·모델 정보만 확보
+        DiaryAiCallInput callInput = new DiaryAiCallInput(diaryDate, diaryTitle, diaryContent, contextBlock,
+                userProfile, feedbackSetting);
+        DiaryAiResolution resolution = diaryAiClient.resolve(callInput);
+
+        // 6. 확정된 프롬프트로 실행 기록 선행 저장 (AI 호출 전에 저장해야 실패 추적이 가능)
+        String promptHash = sha256(resolution.renderedSystemPrompt() + "\n---\n" + resolution.renderedUserPrompt());
+
         DiaryAiRun run = DiaryAiRun.builder()
                 .diaryId(diaryId)
                 .userId(user.getUserId())
                 .triggerType(DiaryAiTriggerType.BUTTON)
                 .status(DiaryAiRunStatus.RUNNING)
-                .model(model)
-                .temperature(request.getTemperature())
-                .topP(request.getTopP())
-                .maxOutputTokens(request.getMaxOutputTokens())
-                .promptSystem(promptSystem)
-                .promptUser(promptUser)
+                // 모델·파라미터는 런타임 프로파일에서 결정됨 (요청 DTO 의 model/temperature 는 무시)
+                .model(resolution.resolvedModel().model())
+                .temperature(resolution.profile().getTemperature() != null
+                        ? resolution.profile().getTemperature().doubleValue()
+                        : null)
+                .topP(resolution.profile().getTopP() != null
+                        ? resolution.profile().getTopP().doubleValue()
+                        : null)
+                .maxOutputTokens(resolution.profile().getMaxTokens())
+                .promptSystem(resolution.renderedSystemPrompt())
+                .promptUser(resolution.renderedUserPrompt())
                 .promptHash(promptHash)
                 .diaryUpdatedAtSnapshot(diary.getUpdatedAt())
                 .build();
@@ -151,9 +176,9 @@ public class DiaryAiService {
             diaryAiMapper.insertDiaryAiRunContextList(run.getRunId(), contexts);
         }
 
+        // 7 & 8. [2단계] AI 호출 → 댓글·실행기록 저장
         try {
-            // 모델 호출 후 결과를 댓글로 저장
-            AiResponse aiResult = callMentorModel(model, promptSystem, promptUser, request);
+            AiResponse aiResult = diaryAiClient.execute(resolution);
 
             DiaryAiComment comment = DiaryAiComment.builder()
                     .diaryId(diaryId)
@@ -166,7 +191,6 @@ public class DiaryAiService {
 
             diaryAiMapper.insertDiaryAiComment(comment);
 
-            // 실행 결과(토큰/요청ID) 업데이트
             diaryAiMapper.updateDiaryAiRunSuccess(
                     run.getRunId(),
                     aiResult.requestId(),
@@ -181,18 +205,20 @@ public class DiaryAiService {
                     comment.getContentMd(),
                     comment.getCreatedAt());
         } catch (ResponseStatusException e) {
-            // 모델 호출 실패 기록
+            // AI 호출 실패 — 실행 기록을 ERROR 로 마감 후 예외 재전파
             diaryAiMapper.updateDiaryAiRunError(run.getRunId(), "LLM_ERROR", safeErrorMessage(e.getReason()));
             throw e;
         } catch (Exception e) {
-            // 예기치 못한 오류 기록
             diaryAiMapper.updateDiaryAiRunError(run.getRunId(), "UNEXPECTED_ERROR", safeErrorMessage(e.getMessage()));
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI comment generation failed");
         }
     }
 
+    // =========================================================================
+    // 댓글 목록 조회
+    // =========================================================================
+
     public List<DiaryAiCommentListItemResponse> getAiComments(Long diaryId, Integer limit) {
-        // 접근 권한 확인 후 댓글 목록 조회
         User user = SecurityUtils.getCurrentUserOrThrow();
 
         DiarySummary diary = diaryMapper.selectDiaryById(diaryId);
@@ -208,7 +234,6 @@ public class DiaryAiService {
         List<DiaryAiComment> comments = diaryAiMapper.selectAiCommentsByDiaryId(diaryId, user.getUserId(),
                 normalizedLimit);
 
-        // 응답 DTO로 변환
         List<DiaryAiCommentListItemResponse> responses = new ArrayList<>();
         for (DiaryAiComment comment : comments) {
             responses.add(DiaryAiCommentListItemResponse.of(
@@ -222,16 +247,19 @@ public class DiaryAiService {
         return responses;
     }
 
+    // =========================================================================
+    // 댓글 피드백
+    // =========================================================================
+
     @Transactional
     public void createFeedback(Long aiCommentId, DiaryAiFeedbackCreateRequest request) {
-        // 요청 본문과 경로의 ID 일치 여부 검증
         User user = SecurityUtils.getCurrentUserOrThrow();
 
+        // 경로 변수와 요청 본문의 ID 일치 여부 확인
         if (request.getAiCommentId() != null && !aiCommentId.equals(request.getAiCommentId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "aiCommentId mismatch");
         }
 
-        // 댓글 존재/권한 검증
         DiaryAiComment comment = diaryAiMapper.selectAiCommentById(aiCommentId);
         if (comment == null || Boolean.TRUE.equals(comment.getIsDeleted())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "AI comment not found");
@@ -240,7 +268,6 @@ public class DiaryAiService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot give feedback on this comment");
         }
 
-        // 피드백 저장 (중복은 예외 처리)
         DiaryAiFeedback feedback = DiaryAiFeedback.builder()
                 .aiCommentId(aiCommentId)
                 .userId(user.getUserId())
@@ -255,57 +282,18 @@ public class DiaryAiService {
         }
     }
 
-    private AiResponse callMentorModel(String model,
-            String promptSystem,
-            String promptUser,
-            DiaryAiCommentCreateRequest request) {
-        // 개발자/사용자 메시지로 프롬프트 구성
-        List<AiMessage> messages = new ArrayList<>();
-        messages.add(new AiMessage("developer", promptSystem));
-        messages.add(new AiMessage("user", promptUser));
+    // =========================================================================
+    // 컨텍스트 블록 조립
+    // =========================================================================
 
-        AiResponse result = null;
-
-        try {
-            result = aiCallExecutor.call(AiRequest.builder()
-                    .provider(appAiProperties.getDefaultProvider())
-                    .model(model)
-                    .messages(messages)
-                    .temperature(request.getTemperature())
-                    .topP(request.getTopP())
-                    .maxTokens(request.getMaxOutputTokens())
-                    .build());
-        } catch (Exception e) {
-            monitoringEventService.logError(MonitoringEventCode.AI_CALL_FAIL.name(), "AI mentor call failed", e, null);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI request failed");
-        }
-
-        String content = result.content();
-
-        // 응답 본문 검증
-        if (StringUtils.isBlank(content)) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI returned empty assistant content");
-        }
-
-        String requestId = result.requestId();
-        Integer promptTokens = result.promptTokens();
-        Integer completionTokens = result.completionTokens();
-        Integer totalTokens = result.totalTokens();
-
-        return new AiResponse(
-                content.trim(),
-                result.provider(),
-                model,
-                requestId,
-                promptTokens,
-                completionTokens,
-                totalTokens);
-    }
-
+    /**
+     * 최근 일기·태그 연관 일기를 중복 없이 합산하고 전체 한도에 맞게 자른다.
+     * TAG 출처가 RECENT 보다 높은 우선순위를 가진다.
+     */
     private List<DiaryAiRunContext> buildContexts(List<DiarySummary> recentDiaries,
             List<DiarySummary> tagDiaries,
             int totalLimit) {
-        // 최근/태그 컨텍스트를 중복 없이 정렬된 맵으로 합친다
+        // TAG 먼저 삽입 → RECENT 로 나머지 채움 (putIfAbsent 로 중복 방지)
         Map<Long, DiaryAiSourceType> orderedSources = new LinkedHashMap<>();
 
         for (DiarySummary diary : tagDiaries) {
@@ -318,7 +306,6 @@ public class DiaryAiService {
         List<DiaryAiRunContext> contexts = new ArrayList<>();
         int sortOrder = 1;
 
-        // totalLimit까지 컨텍스트 엔트리 생성
         for (Map.Entry<Long, DiaryAiSourceType> entry : orderedSources.entrySet()) {
             if (contexts.size() >= totalLimit) {
                 break;
@@ -333,15 +320,18 @@ public class DiaryAiService {
         return contexts;
     }
 
+    /**
+     * 컨텍스트 일기들을 시스템 프롬프트에 삽입할 텍스트 블록으로 조립한다.
+     * 전체 길이가 CONTEXT_BLOCK_MAX 를 초과하면 그 시점에서 잘라낸다.
+     */
     private String buildContextBlock(List<DiaryAiRunContext> contexts,
             List<DiarySummary> recentDiaries,
             List<DiarySummary> tagDiaries) {
-        // 컨텍스트가 없으면 짧은 안내 문구 반환
         if (contexts.isEmpty()) {
             return "참고할 과거 일기 컨텍스트는 비어 있다.";
         }
 
-        // diaryId -> DiarySummary 매핑
+        // diaryId → DiarySummary 매핑 (컨텍스트 항목에서 본문을 찾기 위함)
         Map<Long, DiarySummary> diaryMap = new LinkedHashMap<>();
         for (DiarySummary diary : recentDiaries) {
             diaryMap.putIfAbsent(diary.getDiaryId(), diary);
@@ -354,7 +344,6 @@ public class DiaryAiService {
         sb.append("아래는 과거 일기에서 발췌한 짧은 컨텍스트다.\n");
         sb.append("- 원문을 그대로 길게 인용하지 말고, 맥락 파악에만 사용하라.\n\n");
 
-        // 길이 제한을 넘기지 않도록 컨텍스트 블록 누적
         for (DiaryAiRunContext ctx : contexts) {
             DiarySummary diary = diaryMap.get(ctx.getSourceDiaryId());
             if (diary == null) {
@@ -362,6 +351,7 @@ public class DiaryAiService {
             }
 
             String block = formatContextDiary(diary, ctx.getSortOrder(), ctx.getSourceType());
+            // 전체 블록 길이 초과 시 조기 종료
             if (sb.length() + block.length() > CONTEXT_BLOCK_MAX) {
                 break;
             }
@@ -371,30 +361,8 @@ public class DiaryAiService {
         return sb.toString().trim();
     }
 
-    private String buildSystemPrompt(String contextBlock) {
-        // 시스템 프롬프트 + 컨텍스트 블록 결합
-        return MENTOR_SYSTEM_PROMPT + "\n\n[과거 일기 컨텍스트]\n" + contextBlock;
-    }
-
-    private String buildUserPrompt(DiarySummary diary, DiaryAiCommentCreateRequest request) {
-        // 오늘 일기 내용을 요약해서 유저 프롬프트로 구성
-        String diaryDate = diary.getDiaryDate() == null ? "" : diary.getDiaryDate().toString();
-        String title = StringUtils.defaultString(diary.getTitle());
-        String contentSnippet = TextSnippetUtil.normalizeAndLimit(diary.getContentMd(), TODAY_DIARY_SNIPPET_MAX);
-
-        return """
-                [오늘 일기]
-                날짜: %s
-                제목: %s
-                내용:
-                %s
-
-                위 일기를 읽고, 너무 길지 않게 한국어로 따뜻하고 구체적인 멘토 댓글을 작성해줘.
-                """.formatted(diaryDate, title, contentSnippet);
-    }
-
+    /** 과거 일기 1건을 "(순서) [출처유형] 날짜 - 제목\n본문스니펫" 형식으로 포맷한다. */
     private String formatContextDiary(DiarySummary diary, int sortOrder, DiaryAiSourceType sourceType) {
-        // 컨텍스트 한 건을 포맷팅
         LocalDate date = diary.getDiaryDate();
         String dateText = date == null ? "" : date.toString();
         String title = StringUtils.defaultString(diary.getTitle());
@@ -407,8 +375,12 @@ public class DiaryAiService {
                 """.formatted(sortOrder, sourceType.name(), dateText, title, snippet);
     }
 
+    // =========================================================================
+    // 유틸
+    // =========================================================================
+
+    /** 시스템/유저 프롬프트를 합산한 SHA-256 해시 — 프롬프트 변경 여부 감지용. */
     private String sha256(String input) {
-        // 프롬프트 해시 생성
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
@@ -423,13 +395,12 @@ public class DiaryAiService {
         }
     }
 
+    /** 오류 메시지를 DB 컬럼 최대 길이(2,000자)에 맞게 자른다. */
     private String safeErrorMessage(String message) {
-        // 오류 메시지 길이 제한
         return trimToEmpty(message, 2_000);
     }
 
     private String trimToEmpty(String value, int maxLen) {
-        // trim + 최대 길이 제한
         if (value == null) {
             return null;
         }
