@@ -10,14 +10,11 @@ spring:
       max-file-size: 10MB # 하나의 파일의 최대 사이즈
       max-request-size: 10MB # 한번의 요청으로 허용가능한 여러개 파일의 합계 사이즈
   mvc:
-    log-request-details: true # 로그에 API 요청 파라미터까지 보도록 처리, 반드시 운영에서는 비활성화
+    log-request-details: false # 로그에 API 요청 파라미터까지 보도록 처리, 반드시 운영에서는 비활성화
   application:
     name: HeysoDiaryBackEnd
   profiles:
     active: local
-  rsocket:
-    server:
-      port: 8080
   # flyway db-migration
   flyway:
     enabled: true
@@ -50,8 +47,7 @@ mybatis:
 
 app:
   auth:
-    # Fallback for local/dev; override with env var JWT_SECRET in prod
-    jwt-secret: ${JWT_SECRET:local-dev-jwt-secret-key-please-change-123456}
+    jwt-secret: ${JWT_SECRET}
     jwt-expiration-ms: 3600000 # 1시간
 
   oauth2:
