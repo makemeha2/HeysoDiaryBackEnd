@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.support.AiTimed;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
@@ -38,6 +39,7 @@ public class DiaryAiPolishService {
     private final DiaryAiPolishAiClient diaryAiPolishAiClient;
     private final DiaryAiPolishPersistenceService persistenceService;
 
+    @AiTimed(domain = "diaryAiPolish", phase = "total")
     public DiaryAiPolishResponse requestPolish(DiaryAiPolishRequest request) {
         User user = SecurityUtils.getCurrentUserOrThrow();
         Long diaryId = request.getDiaryId();

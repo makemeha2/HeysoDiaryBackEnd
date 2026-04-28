@@ -37,6 +37,7 @@ import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
 import heyso.HeysoDiaryBackEnd.ai.config.AppAiProperties;
 import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
+import heyso.HeysoDiaryBackEnd.ai.support.AiTimed;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.monitoring.service.MonitoringEventService;
 import heyso.HeysoDiaryBackEnd.monitoring.support.MonitoringEventCode;
@@ -215,6 +216,7 @@ public class AiChatService {
 
     /// OpenAI Chat봇의 응답을 가져온다.
     @Transactional
+    @AiTimed(domain = "aichat", phase = "total")
     public ChatAssistantReplyResponse createAssistantReply(Long conversationId, ChatAssistantReplyRequest request) {
         User user = SecurityUtils.getCurrentUserOrThrow();
 

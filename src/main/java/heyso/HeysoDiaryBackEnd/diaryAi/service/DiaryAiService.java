@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.support.AiTimed;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
@@ -105,6 +106,7 @@ public class DiaryAiService {
      * </pre>
      */
     @Transactional
+    @AiTimed(domain = "diaryAi", phase = "total")
     public DiaryAiCommentCreateResponse createAiComment(Long diaryId, DiaryAiCommentCreateRequest request) {
         User user = SecurityUtils.getCurrentUserOrThrow();
 
