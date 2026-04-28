@@ -27,6 +27,7 @@ public class AiCallExecutor {
         }
     }
 
+    @AiTimed(domain = "ai_executor", phase = "ai_call_total")
     public AiResponse call(AiRequest request) {
         if (request == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AI request is required");

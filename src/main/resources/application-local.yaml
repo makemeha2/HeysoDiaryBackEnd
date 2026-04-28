@@ -27,9 +27,6 @@ spring:
 decorator:
   datasource:
     enabled: false
-    # 데코레이터 자체는 유지하되, 로깅 기능만 비활성화
-    datasource-proxy:
-      enabled: false
     p6spy:
       enable-logging: false
 

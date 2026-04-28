@@ -144,8 +144,9 @@ public class AdminAiTemplateController {
 
     @GetMapping("/bindings")
     public List<AiPromptBindingListResponse> getBindingList(
-            @RequestParam(required = false) String status) {
-        return aiPromptBindingService.getList(status);
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String domainType) {
+        return aiPromptBindingService.getList(status, domainType);
     }
 
     @GetMapping("/bindings/{bindingId}")

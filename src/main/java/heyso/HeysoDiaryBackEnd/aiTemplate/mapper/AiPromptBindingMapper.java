@@ -10,7 +10,7 @@ import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiPromptBinding;
 @Mapper
 public interface AiPromptBindingMapper {
 
-    List<AiPromptBinding> selectList(@Param("status") String status);
+    List<AiPromptBinding> selectList(@Param("status") String status, @Param("domainType") String domainType);
 
     AiPromptBinding selectById(@Param("bindingId") Long bindingId);
 

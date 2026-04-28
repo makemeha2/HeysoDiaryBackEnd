@@ -40,6 +40,7 @@
         WHERE 1=1
         <if test="status == 'ACTIVE'">AND is_active = 1</if>
         <if test="status == 'INACTIVE'">AND is_active = 0</if>
+        <if test="domainType != null and domainType != ''">AND domain_type = #{domainType}</if>
         ORDER BY binding_id DESC
     </select>
 

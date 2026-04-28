@@ -29,11 +29,11 @@ public class AiPromptBindingService {
     private final AiPromptTemplateMapper aiPromptTemplateMapper;
     private final AiRuntimeProfileMapper aiRuntimeProfileMapper;
 
-    public List<AiPromptBindingListResponse> getList(String status) {
+    public List<AiPromptBindingListResponse> getList(String status, String domainType) {
         adminAuthorizationService.requireAdminUser();
 
         String resolvedStatus = (status == null) ? "ALL" : status;
-        List<AiPromptBinding> bindings = aiPromptBindingMapper.selectList(resolvedStatus);
+        List<AiPromptBinding> bindings = aiPromptBindingMapper.selectList(resolvedStatus, domainType);
         return bindings.stream()
                 .map(this::toListResponse)
                 .collect(Collectors.toList());

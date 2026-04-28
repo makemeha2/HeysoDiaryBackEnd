@@ -21,6 +21,7 @@ import heyso.HeysoDiaryBackEnd.ai.client.AiMessage;
 import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
 import heyso.HeysoDiaryBackEnd.ai.client.AiRequest;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.ai.support.AiTimed;
 import org.springframework.ai.chat.client.ChatClient;
 
 @Component
@@ -38,6 +39,7 @@ public class OpenAiClient implements AiClient {
     }
 
     @Override
+    @AiTimed(domain = "openai_client", phase = "ai_http_call")
     public AiResponse generate(AiRequest request) {
         if (request == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AI request is required");
