@@ -51,6 +51,8 @@ app:
     jwt-expiration-ms: 3600000 # 1시간
     jwt-issuer: heyso-diary
     jwt-audience: heyso-diary-web
+    cookie-secure: true
+    cookie-same-site: Lax
 
   oauth2:
     google:

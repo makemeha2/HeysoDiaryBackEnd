@@ -1,5 +1,7 @@
 package heyso.HeysoDiaryBackEnd.config;
 
+import heyso.HeysoDiaryBackEnd.auth.cookie.AuthCookieService;
+import heyso.HeysoDiaryBackEnd.auth.csrf.CookieCsrfFilter;
 import heyso.HeysoDiaryBackEnd.auth.jwt.JwtAuthenticationFilter;
 import heyso.HeysoDiaryBackEnd.auth.service.AuthTokenService;
 import heyso.HeysoDiaryBackEnd.security.MonitoringAccessDeniedHandler;
@@ -25,6 +27,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
         private final AuthTokenService authTokenService;
+        private final AuthCookieService authCookieService;
         private final List<EndpointSecurity> endpointSecurities;
         private final MonitoringAuthenticationEntryPoint monitoringAuthenticationEntryPoint;
         private final MonitoringAccessDeniedHandler monitoringAccessDeniedHandler;
@@ -83,8 +86,11 @@ public class SecurityConfig {
 
                 // ✅ JWT 인증 필터
                 http.addFilterBefore(
-                                new JwtAuthenticationFilter(authTokenService),
+                                new JwtAuthenticationFilter(authTokenService, authCookieService),
                                 UsernamePasswordAuthenticationFilter.class);
+                http.addFilterBefore(
+                                new CookieCsrfFilter(authCookieService),
+                                JwtAuthenticationFilter.class);
 
                 return http.build();
         }

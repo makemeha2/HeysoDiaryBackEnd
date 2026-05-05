@@ -1,5 +1,6 @@
 package heyso.HeysoDiaryBackEnd.auth.jwt;
 
+import heyso.HeysoDiaryBackEnd.auth.cookie.AuthCookieService;
 import heyso.HeysoDiaryBackEnd.auth.service.AuthTokenService;
 import heyso.HeysoDiaryBackEnd.auth.service.AuthenticatedToken;
 import heyso.HeysoDiaryBackEnd.user.model.User;
@@ -28,6 +29,7 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final AuthTokenService authTokenService;
+    private final AuthCookieService authCookieService;
 
     @Override
     protected void doFilterInternal(
@@ -75,7 +77,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
             return bearer.substring(7);
         }
-        return null;
+        return authCookieService.extractAccessToken(request);
     }
 
     private void markAuthenticationFailure(HttpServletRequest request, JwtAuthError error, Exception exception) {

@@ -52,6 +52,8 @@ logging:
     "[com.azure.core]": INFO
     
 app:
+  auth:
+    cookie-secure: false
   oauth2:
       google:
         client-id: 804003243997-pp5313n2tiju5bgkracp3ua5b3s8fakk.apps.googleusercontent.com

@@ -7,6 +7,7 @@ import heyso.HeysoDiaryBackEnd.auth.dto.GoogleLoginRequest;
 import heyso.HeysoDiaryBackEnd.auth.dto.AccountWithdrawRequest;
 import heyso.HeysoDiaryBackEnd.auth.dto.ReauthStatusResponse;
 import heyso.HeysoDiaryBackEnd.auth.dto.ReauthVerifyResponse;
+import heyso.HeysoDiaryBackEnd.auth.cookie.AuthCookieService;
 import heyso.HeysoDiaryBackEnd.auth.jwt.JwtAuthError;
 import heyso.HeysoDiaryBackEnd.auth.jwt.JwtAuthException;
 import heyso.HeysoDiaryBackEnd.auth.service.AuthTokenService;
@@ -16,6 +17,7 @@ import heyso.HeysoDiaryBackEnd.auth.service.GoogleOAuthService;
 import heyso.HeysoDiaryBackEnd.auth.service.ReauthPurpose;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -38,12 +40,15 @@ public class AuthController {
     private final EmailReauthService emailReauthService;
     private final AccountDeleteService accountDeleteService;
     private final AuthTokenService authTokenService;
+    private final AuthCookieService authCookieService;
 
     @PostMapping("/oauth/google")
     public ResponseEntity<AuthResponse> googleLogin(
-            @Valid @RequestBody GoogleLoginRequest request) {
+            @Valid @RequestBody GoogleLoginRequest request,
+            HttpServletResponse servletResponse) {
         AuthResponse response = googleOAuthService.loginOrRegister(request.getIdToken());
-        return ResponseEntity.ok(response);
+        authCookieService.addAuthCookies(servletResponse, response.getAccessToken());
+        return ResponseEntity.ok(stripAccessToken(response));
     }
 
     @PostMapping("/reauth/email/send")
@@ -101,22 +106,27 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader) {
-        String token = extractBearerToken(authHeader);
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader,
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse) {
+        String token = extractToken(authHeader, servletRequest);
         if (token == null) {
+            authCookieService.clearAuthCookies(servletResponse);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .header(JwtAuthError.RESPONSE_HEADER, JwtAuthError.INVALID.headerValue())
                     .build();
         }
 
         authTokenService.revokeAccessToken(token, authTokenService.logoutReason());
+        authCookieService.clearAuthCookies(servletResponse);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/validate")
     public ResponseEntity<Void> validateToken(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader) {
-        String token = extractBearerToken(authHeader);
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader,
+            HttpServletRequest servletRequest) {
+        String token = extractToken(authHeader, servletRequest);
         if (token == null) {
             log.error("Token is Not Exist.");
             return ResponseEntity.status(401)
@@ -151,6 +161,24 @@ public class AuthController {
             return null;
         }
         return authHeader.substring(7);
+    }
+
+    private String extractToken(String authHeader, HttpServletRequest request) {
+        String bearerToken = extractBearerToken(authHeader);
+        if (bearerToken != null) {
+            return bearerToken;
+        }
+        return authCookieService.extractAccessToken(request);
+    }
+
+    private AuthResponse stripAccessToken(AuthResponse response) {
+        return new AuthResponse(
+                null,
+                response.getUserId(),
+                response.getEmail(),
+                response.getNickname(),
+                response.getRole(),
+                response.getProfileImgUrl());
     }
 
     private String extractClientIp(HttpServletRequest request) {
