@@ -8,6 +8,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
+import heyso.HeysoDiaryBackEnd.auth.jwt.JwtAuthError;
 import heyso.HeysoDiaryBackEnd.monitoring.dto.MonitoringEventCreateCommand;
 import heyso.HeysoDiaryBackEnd.monitoring.service.MonitoringEventService;
 import heyso.HeysoDiaryBackEnd.monitoring.support.MonitoringEventCode;
@@ -31,6 +32,7 @@ public class MonitoringAuthenticationEntryPoint implements AuthenticationEntryPo
             HttpServletRequest request,
             HttpServletResponse response,
             AuthenticationException authException) throws IOException {
+        JwtAuthError jwtAuthError = resolveJwtAuthError(request);
 
         if (!shouldSkipMonitoringLog(request)) {
             try {
@@ -44,7 +46,7 @@ public class MonitoringAuthenticationEntryPoint implements AuthenticationEntryPo
                                 .detailJson(MonitoringSecurityJsonUtil.buildDetailJson(
                                         request,
                                         "reason",
-                                        "authentication_failed"))
+                                        jwtAuthError != null ? jwtAuthError.headerValue() : "authentication_failed"))
                                 .sourceClass(getClass().getSimpleName())
                                 .sourceMethod("commence")
                                 .build(),
@@ -55,9 +57,17 @@ public class MonitoringAuthenticationEntryPoint implements AuthenticationEntryPo
         }
 
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        if (jwtAuthError != null) {
+            response.setHeader(JwtAuthError.RESPONSE_HEADER, jwtAuthError.headerValue());
+        }
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter().write("{\"status\":401,\"message\":\"Unauthorized\"}");
+    }
+
+    private JwtAuthError resolveJwtAuthError(HttpServletRequest request) {
+        Object value = request != null ? request.getAttribute(JwtAuthError.REQUEST_ATTRIBUTE) : null;
+        return value instanceof JwtAuthError ? (JwtAuthError) value : null;
     }
 
     private boolean shouldSkipMonitoringLog(HttpServletRequest request) {

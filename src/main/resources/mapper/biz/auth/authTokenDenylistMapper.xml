@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.auth.mapper.AuthTokenDenylistMapper">
+
+    <insert id="insertIgnore" parameterType="heyso.HeysoDiaryBackEnd.auth.model.AuthTokenDenylistEntry">
+        INSERT IGNORE INTO tb_auth_token_denylist (
+            jti,
+            user_id,
+            expires_at,
+            revoked_reason,
+            created_at
+        )
+        VALUES (
+            #{jti},
+            #{userId},
+            #{expiresAt},
+            #{revokedReason},
+            NOW()
+        )
+    </insert>
+
+    <select id="existsActiveJti" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM tb_auth_token_denylist
+            WHERE jti = #{jti}
+              AND expires_at > #{now}
+        )
+    </select>
+
+    <delete id="deleteExpired">
+        DELETE FROM tb_auth_token_denylist
+        WHERE expires_at &lt;= #{now}
+    </delete>
+
+</mapper>

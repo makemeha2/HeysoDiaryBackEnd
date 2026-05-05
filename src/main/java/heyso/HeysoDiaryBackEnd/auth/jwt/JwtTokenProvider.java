@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtTokenProvider {
@@ -17,6 +18,12 @@ public class JwtTokenProvider {
 
     @Value("${app.auth.jwt-expiration-ms}")
     private long validityInMs;
+
+    @Value("${app.auth.jwt-issuer:heyso-diary}")
+    private String issuer;
+
+    @Value("${app.auth.jwt-audience:heyso-diary-web}")
+    private String audience;
 
     private Key secretKey;
 
@@ -34,6 +41,9 @@ public class JwtTokenProvider {
         Date expiry = new Date(now.getTime() + validityInMs);
 
         JwtBuilder builder = Jwts.builder()
+                .setId(UUID.randomUUID().toString())
+                .setIssuer(issuer)
+                .setAudience(audience)
                 .setSubject(String.valueOf(userId))
                 .claim("email", email)
                 .claim("role", role)
@@ -51,6 +61,8 @@ public class JwtTokenProvider {
     public Jws<Claims> parseClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(secretKey)
+                .requireIssuer(issuer)
+                .requireAudience(audience)
                 .build()
                 .parseClaimsJws(token);
     }

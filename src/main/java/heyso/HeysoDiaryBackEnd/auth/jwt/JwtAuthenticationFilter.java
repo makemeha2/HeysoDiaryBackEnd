@@ -1,9 +1,10 @@
 package heyso.HeysoDiaryBackEnd.auth.jwt;
 
-import heyso.HeysoDiaryBackEnd.user.mapper.UserMapper;
+import heyso.HeysoDiaryBackEnd.auth.service.AuthTokenService;
+import heyso.HeysoDiaryBackEnd.auth.service.AuthenticatedToken;
 import heyso.HeysoDiaryBackEnd.user.model.User;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,8 +27,7 @@ import java.util.List;
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtTokenProvider jwtTokenProvider;
-    private final UserMapper userMapper;
+    private final AuthTokenService authTokenService;
 
     @Override
     protected void doFilterInternal(
@@ -39,35 +39,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (token != null) {
             try {
-                Jws<Claims> claimsJws = jwtTokenProvider.parseClaims(token);
-                Claims claims = claimsJws.getBody();
+                AuthenticatedToken authenticatedToken = authTokenService.authenticate(token);
+                User user = authenticatedToken.getUser();
 
-                Long userId = Long.valueOf(claims.getSubject());
-                String role = (String) claims.get("role");
-                String scope = (String) claims.get("scope");
-
-                User user = userMapper.selectUserById(userId);
-                if (user != null && "ACTIVE".equals(user.getStatus())) {
-                    List<GrantedAuthority> authorities = new ArrayList<>();
-                    if (StringUtils.hasText(role)) {
-                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
-                    }
-                    if (StringUtils.hasText(scope)) {
-                        authorities.add(new SimpleGrantedAuthority("SCOPE_" + scope));
-                    }
-
-                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            user,
-                            null,
-                            authorities);
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                List<GrantedAuthority> authorities = new ArrayList<>();
+                if (StringUtils.hasText(authenticatedToken.getRole())) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + authenticatedToken.getRole()));
+                }
+                if (StringUtils.hasText(authenticatedToken.getScope())) {
+                    authorities.add(new SimpleGrantedAuthority("SCOPE_" + authenticatedToken.getScope()));
                 }
 
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        user,
+                        null,
+                        authorities);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            } catch (JwtAuthException e) {
+                markAuthenticationFailure(request, e.getError(), e);
+            } catch (ExpiredJwtException e) {
+                markAuthenticationFailure(request, JwtAuthError.EXPIRED, e);
+            } catch (JwtException | IllegalArgumentException e) {
+                markAuthenticationFailure(request, JwtAuthError.INVALID, e);
             } catch (Exception e) {
-                String requestUri = request.getRequestURI();
-                String clientIp = request.getRemoteAddr();
-                log.warn("JWT authentication failed for request: {} (clientIp: {})", requestUri, clientIp, e);
-                SecurityContextHolder.clearContext();
+                markAuthenticationFailure(request, JwtAuthError.INVALID, e);
             }
         }
 
@@ -80,5 +76,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearer.substring(7);
         }
         return null;
+    }
+
+    private void markAuthenticationFailure(HttpServletRequest request, JwtAuthError error, Exception exception) {
+        String requestUri = request.getRequestURI();
+        String clientIp = request.getRemoteAddr();
+        request.setAttribute(JwtAuthError.REQUEST_ATTRIBUTE, error);
+        log.warn(
+                "JWT authentication failed for request: {} (clientIp: {}, reason: {})",
+                requestUri,
+                clientIp,
+                error.headerValue(),
+                exception);
+        SecurityContextHolder.clearContext();
     }
 }

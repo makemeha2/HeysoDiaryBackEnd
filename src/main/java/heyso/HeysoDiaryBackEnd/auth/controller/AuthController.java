@@ -7,7 +7,9 @@ import heyso.HeysoDiaryBackEnd.auth.dto.GoogleLoginRequest;
 import heyso.HeysoDiaryBackEnd.auth.dto.AccountWithdrawRequest;
 import heyso.HeysoDiaryBackEnd.auth.dto.ReauthStatusResponse;
 import heyso.HeysoDiaryBackEnd.auth.dto.ReauthVerifyResponse;
-import heyso.HeysoDiaryBackEnd.auth.jwt.JwtTokenProvider;
+import heyso.HeysoDiaryBackEnd.auth.jwt.JwtAuthError;
+import heyso.HeysoDiaryBackEnd.auth.jwt.JwtAuthException;
+import heyso.HeysoDiaryBackEnd.auth.service.AuthTokenService;
 import heyso.HeysoDiaryBackEnd.auth.service.AccountDeleteService;
 import heyso.HeysoDiaryBackEnd.auth.service.EmailReauthService;
 import heyso.HeysoDiaryBackEnd.auth.service.GoogleOAuthService;
@@ -16,6 +18,7 @@ import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -34,7 +37,7 @@ public class AuthController {
     private final GoogleOAuthService googleOAuthService;
     private final EmailReauthService emailReauthService;
     private final AccountDeleteService accountDeleteService;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final AuthTokenService authTokenService;
 
     @PostMapping("/oauth/google")
     public ResponseEntity<AuthResponse> googleLogin(
@@ -96,23 +99,58 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader) {
+        String token = extractBearerToken(authHeader);
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .header(JwtAuthError.RESPONSE_HEADER, JwtAuthError.INVALID.headerValue())
+                    .build();
+        }
+
+        authTokenService.revokeAccessToken(token, authTokenService.logoutReason());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/validate")
     public ResponseEntity<Void> validateToken(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        String token = extractBearerToken(authHeader);
+        if (token == null) {
             log.error("Token is Not Exist.");
-            return ResponseEntity.status(401).build();
+            return ResponseEntity.status(401)
+                    .header(JwtAuthError.RESPONSE_HEADER, JwtAuthError.INVALID.headerValue())
+                    .build();
         }
 
-        String token = authHeader.substring(7);
         try {
-            jwtTokenProvider.parseClaims(token);
+            authTokenService.authenticate(token);
             log.error("Token is correct");
             return ResponseEntity.ok().build();
+        } catch (JwtAuthException e) {
+            log.error("Token is rejected. reason={}", e.getError().headerValue());
+            return ResponseEntity.status(401)
+                    .header(JwtAuthError.RESPONSE_HEADER, e.getError().headerValue())
+                    .build();
+        } catch (ExpiredJwtException e) {
+            log.error("Token is expired.");
+            return ResponseEntity.status(401)
+                    .header(JwtAuthError.RESPONSE_HEADER, JwtAuthError.EXPIRED.headerValue())
+                    .build();
         } catch (JwtException | IllegalArgumentException e) {
-            log.error(String.format("토큰이 잘못되었습니다.{}", token));
-            return ResponseEntity.status(401).build();
+            log.error("Token is invalid.");
+            return ResponseEntity.status(401)
+                    .header(JwtAuthError.RESPONSE_HEADER, JwtAuthError.INVALID.headerValue())
+                    .build();
         }
+    }
+
+    private String extractBearerToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+        return authHeader.substring(7);
     }
 
     private String extractClientIp(HttpServletRequest request) {
