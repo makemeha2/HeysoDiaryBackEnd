@@ -17,6 +17,7 @@ public class DiarySummary {
     private String title;
     private String contentMd;
     private LocalDate diaryDate;
+    private String moodId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<String> tags;

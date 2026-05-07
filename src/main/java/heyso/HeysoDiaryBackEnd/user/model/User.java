@@ -13,6 +13,7 @@ public class User {
     private String nickname;
     private String role; // ADMIN / MEMBER
     private String status; // ACTIVE / INACTIVE / BLOCKED
+    private LocalDateTime tokenRevokedAfter;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

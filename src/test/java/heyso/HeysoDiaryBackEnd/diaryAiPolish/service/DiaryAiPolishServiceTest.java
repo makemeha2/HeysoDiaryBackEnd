@@ -141,7 +141,7 @@ class DiaryAiPolishServiceTest {
         when(diaryMapper.selectDiaryById(10L)).thenReturn(ownedDiary(10L, 1L));
         when(persistenceService.createRequestLog(1L, 10L, 60)).thenReturn(103L);
         when(persistenceService.reserveUsage(eq(1L), any(LocalDate.class), eq(3))).thenReturn(usage);
-        when(diaryAiPolishAiClient.polish("a".repeat(60), DiaryAiPolishMode.RELAXED))
+        when(diaryAiPolishAiClient.polish("a".repeat(60), DiaryAiPolishMode.STRICT))
                 .thenReturn(new AiResponse("polished", AiProvider.OPENAI, "gpt-4o-mini", "req-1", 1, 1, 2));
         when(persistenceService.saveSuccess(103L, 1L, 10L, "a".repeat(60), "polished")).thenReturn(result);
 

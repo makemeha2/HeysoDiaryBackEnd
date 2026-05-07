@@ -7,15 +7,20 @@ import heyso.HeysoDiaryBackEnd.auth.dto.GoogleLoginRequest;
 import heyso.HeysoDiaryBackEnd.auth.dto.AccountWithdrawRequest;
 import heyso.HeysoDiaryBackEnd.auth.dto.ReauthStatusResponse;
 import heyso.HeysoDiaryBackEnd.auth.dto.ReauthVerifyResponse;
-import heyso.HeysoDiaryBackEnd.auth.jwt.JwtTokenProvider;
+import heyso.HeysoDiaryBackEnd.auth.cookie.AuthCookieService;
+import heyso.HeysoDiaryBackEnd.auth.jwt.JwtAuthError;
+import heyso.HeysoDiaryBackEnd.auth.jwt.JwtAuthException;
+import heyso.HeysoDiaryBackEnd.auth.service.AuthTokenService;
 import heyso.HeysoDiaryBackEnd.auth.service.AccountDeleteService;
 import heyso.HeysoDiaryBackEnd.auth.service.EmailReauthService;
 import heyso.HeysoDiaryBackEnd.auth.service.GoogleOAuthService;
 import heyso.HeysoDiaryBackEnd.auth.service.ReauthPurpose;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -34,13 +39,16 @@ public class AuthController {
     private final GoogleOAuthService googleOAuthService;
     private final EmailReauthService emailReauthService;
     private final AccountDeleteService accountDeleteService;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final AuthTokenService authTokenService;
+    private final AuthCookieService authCookieService;
 
     @PostMapping("/oauth/google")
     public ResponseEntity<AuthResponse> googleLogin(
-            @Valid @RequestBody GoogleLoginRequest request) {
+            @Valid @RequestBody GoogleLoginRequest request,
+            HttpServletResponse servletResponse) {
         AuthResponse response = googleOAuthService.loginOrRegister(request.getIdToken());
-        return ResponseEntity.ok(response);
+        authCookieService.addAuthCookies(servletResponse, response.getAccessToken());
+        return ResponseEntity.ok(stripAccessToken(response));
     }
 
     @PostMapping("/reauth/email/send")
@@ -96,23 +104,81 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/validate")
-    public ResponseEntity<Void> validateToken(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.error("Token is Not Exist.");
-            return ResponseEntity.status(401).build();
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader,
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse) {
+        String token = extractToken(authHeader, servletRequest);
+        if (token == null) {
+            authCookieService.clearAuthCookies(servletResponse);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .header(JwtAuthError.RESPONSE_HEADER, JwtAuthError.INVALID.headerValue())
+                    .build();
         }
 
-        String token = authHeader.substring(7);
+        authTokenService.revokeAccessToken(token, authTokenService.logoutReason());
+        authCookieService.clearAuthCookies(servletResponse);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/validate")
+    public ResponseEntity<Void> validateToken(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader,
+            HttpServletRequest servletRequest) {
+        String token = extractToken(authHeader, servletRequest);
+        if (token == null) {
+            log.error("Token is Not Exist.");
+            return ResponseEntity.status(401)
+                    .header(JwtAuthError.RESPONSE_HEADER, JwtAuthError.INVALID.headerValue())
+                    .build();
+        }
+
         try {
-            jwtTokenProvider.parseClaims(token);
+            authTokenService.authenticate(token);
             log.error("Token is correct");
             return ResponseEntity.ok().build();
+        } catch (JwtAuthException e) {
+            log.error("Token is rejected. reason={}", e.getError().headerValue());
+            return ResponseEntity.status(401)
+                    .header(JwtAuthError.RESPONSE_HEADER, e.getError().headerValue())
+                    .build();
+        } catch (ExpiredJwtException e) {
+            log.error("Token is expired.");
+            return ResponseEntity.status(401)
+                    .header(JwtAuthError.RESPONSE_HEADER, JwtAuthError.EXPIRED.headerValue())
+                    .build();
         } catch (JwtException | IllegalArgumentException e) {
-            log.error(String.format("토큰이 잘못되었습니다.{}", token));
-            return ResponseEntity.status(401).build();
+            log.error("Token is invalid.");
+            return ResponseEntity.status(401)
+                    .header(JwtAuthError.RESPONSE_HEADER, JwtAuthError.INVALID.headerValue())
+                    .build();
         }
+    }
+
+    private String extractBearerToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+        return authHeader.substring(7);
+    }
+
+    private String extractToken(String authHeader, HttpServletRequest request) {
+        String bearerToken = extractBearerToken(authHeader);
+        if (bearerToken != null) {
+            return bearerToken;
+        }
+        return authCookieService.extractAccessToken(request);
+    }
+
+    private AuthResponse stripAccessToken(AuthResponse response) {
+        return new AuthResponse(
+                null,
+                response.getUserId(),
+                response.getEmail(),
+                response.getNickname(),
+                response.getRole(),
+                response.getProfileImgUrl());
     }
 
     private String extractClientIp(HttpServletRequest request) {

@@ -1,5 +1,7 @@
 package heyso.HeysoDiaryBackEnd.user.mapper;
 
+import java.time.LocalDateTime;
+
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -38,4 +40,8 @@ public interface UserMapper {
             @Param("withdrawReasonText") String withdrawReasonText);
 
     int deleteUserAuthByUserId(@Param("userId") Long userId);
+
+    int updateTokenRevokedAfter(
+            @Param("userId") Long userId,
+            @Param("tokenRevokedAfter") LocalDateTime tokenRevokedAfter);
 }

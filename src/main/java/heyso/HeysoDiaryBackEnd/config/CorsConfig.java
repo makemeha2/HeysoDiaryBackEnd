@@ -23,7 +23,12 @@ public class CorsConfig {
                 "http://127.0.0.1:8080",
                 "https://heyso-diary.com"));
 
-        config.addAllowedHeader("*");
+        config.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "X-CSRF-Token"));
+        config.setExposedHeaders(List.of("X-Auth-Error"));
         config.addAllowedMethod("*"); // GET, POST, PUT, DELETE 등 모든 메소드 허용
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

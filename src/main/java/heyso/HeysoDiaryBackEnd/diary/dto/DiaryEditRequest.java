@@ -23,5 +23,7 @@ public class DiaryEditRequest {
     @NotNull
     private LocalDate diaryDate;
 
+    private String moodId;
+
     private List<String> tags;
 }

@@ -27,6 +27,16 @@ import java.util.stream.Collectors;
 @Service
 public class DiaryService {
 
+    private static final String DEFAULT_MOOD_ID = "none";
+    private static final Set<String> ALLOWED_MOOD_IDS = Set.of(
+            DEFAULT_MOOD_ID,
+            "calm",
+            "happy",
+            "tired",
+            "sad",
+            "anxious",
+            "proud");
+
     private final DiaryMapper diaryMapper;
 
     public DiaryService(DiaryMapper diaryMapper) {
@@ -97,6 +107,7 @@ public class DiaryService {
         diary.setTitle(request.getTitle());
         diary.setContentMd(request.getContentMd());
         diary.setDiaryDate(request.getDiaryDate());
+        diary.setMoodId(normalizeMoodId(request.getMoodId()));
 
         diaryMapper.insertDiary(diary);
 
@@ -121,7 +132,12 @@ public class DiaryService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot edit this diary");
         }
 
-        diaryMapper.updateDiary(diaryId, request.getTitle(), request.getContentMd(), request.getDiaryDate());
+        diaryMapper.updateDiary(
+                diaryId,
+                request.getTitle(),
+                request.getContentMd(),
+                request.getDiaryDate(),
+                normalizeMoodId(request.getMoodId()));
 
         diaryMapper.deleteDiaryTags(diaryId);
         upsertDiaryTags(diaryId, request.getTags());
@@ -156,6 +172,18 @@ public class DiaryService {
             }
         }
         return List.copyOf(sanitized);
+    }
+
+    private String normalizeMoodId(String moodId) {
+        if (moodId == null || moodId.isBlank()) {
+            return DEFAULT_MOOD_ID;
+        }
+
+        String normalized = moodId.trim();
+        if (!ALLOWED_MOOD_IDS.contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid mood id");
+        }
+        return normalized;
     }
 
     private String sanitizeTag(String tag) {
