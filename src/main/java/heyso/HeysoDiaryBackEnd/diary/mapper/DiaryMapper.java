@@ -32,7 +32,8 @@ public interface DiaryMapper {
     int updateDiary(@Param("diaryId") Long diaryId,
             @Param("title") String title,
             @Param("contentMd") String contentMd,
-            @Param("diaryDate") LocalDate diaryDate);
+            @Param("diaryDate") LocalDate diaryDate,
+            @Param("moodId") String moodId);
 
     void deleteDiary(@Param("diaryId") Long diaryId);
 

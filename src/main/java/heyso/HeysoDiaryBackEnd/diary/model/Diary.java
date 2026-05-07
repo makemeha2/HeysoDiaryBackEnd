@@ -15,6 +15,7 @@ public class Diary {
     private String title;
     private String contentMd;
     private LocalDate diaryDate;
+    private String moodId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

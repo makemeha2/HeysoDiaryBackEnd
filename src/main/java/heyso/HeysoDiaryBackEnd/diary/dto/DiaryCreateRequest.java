@@ -21,5 +21,7 @@ public class DiaryCreateRequest {
     @NotNull
     private LocalDate diaryDate;
 
+    private String moodId;
+
     private List<String> tags;
 }

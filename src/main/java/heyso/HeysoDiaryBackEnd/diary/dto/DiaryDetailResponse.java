@@ -17,6 +17,7 @@ public class DiaryDetailResponse {
     private String title;
     private String contentMd;
     private LocalDate diaryDate;
+    private String moodId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<String> tags;
@@ -29,6 +30,7 @@ public class DiaryDetailResponse {
         response.setTitle(diarySummary.getTitle());
         response.setContentMd(diarySummary.getContentMd());
         response.setDiaryDate(diarySummary.getDiaryDate());
+        response.setMoodId(diarySummary.getMoodId());
         response.setCreatedAt(diarySummary.getCreatedAt());
         response.setUpdatedAt(diarySummary.getUpdatedAt());
         response.setTags(tags);
