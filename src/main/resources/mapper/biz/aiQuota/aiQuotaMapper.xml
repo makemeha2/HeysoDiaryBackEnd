@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.aiQuota.mapper.AiQuotaMapper">
+
+    <resultMap id="AiQuotaDailyUsageResultMap" type="heyso.HeysoDiaryBackEnd.aiQuota.model.AiQuotaDailyUsage">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="usage_date" jdbcType="DATE" property="usageDate"/>
+        <result column="used_count" property="usedCount"/>
+        <result column="is_active" jdbcType="TINYINT" property="isActive"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <resultMap id="AiQuotaUsageLogResultMap" type="heyso.HeysoDiaryBackEnd.aiQuota.model.AiQuotaUsageLog">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="usage_date" jdbcType="DATE" property="usageDate"/>
+        <result column="feature_type" jdbcType="VARCHAR"
+                javaType="heyso.HeysoDiaryBackEnd.aiQuota.model.AiFeatureType"
+                property="featureType"/>
+        <result column="feature_ref_id" property="featureRefId"/>
+        <result column="status" property="status"/>
+        <result column="is_active" jdbcType="TINYINT" property="isActive"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <insert id="insertDailyUsageIfAbsent">
+        INSERT IGNORE INTO tb_ai_quota_daily_usage (
+            user_id,
+            usage_date,
+            used_count,
+            is_active,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{userId},
+            #{usageDate},
+            0,
+            1,
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <select id="selectDailyUsage" resultMap="AiQuotaDailyUsageResultMap">
+        SELECT
+            id,
+            user_id,
+            usage_date,
+            used_count,
+            is_active,
+            created_at,
+            updated_at
+        FROM tb_ai_quota_daily_usage
+        WHERE user_id = #{userId}
+          AND usage_date = #{usageDate}
+          AND is_active = 1
+    </select>
+
+    <update id="incrementUsageIfAvailable">
+        UPDATE tb_ai_quota_daily_usage
+        SET
+            used_count = used_count + 1,
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND usage_date = #{usageDate}
+          AND is_active = 1
+          AND used_count &lt; #{effectiveLimit}
+    </update>
+
+    <update id="decrementUsage">
+        UPDATE tb_ai_quota_daily_usage
+        SET
+            used_count = GREATEST(used_count - 1, 0),
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND usage_date = #{usageDate}
+          AND is_active = 1
+    </update>
+
+    <select id="sumActiveGrantAmount" resultType="java.lang.Integer">
+        SELECT COALESCE(SUM(amount), 0)
+        FROM tb_ai_quota_grant
+        WHERE user_id = #{userId}
+          AND grant_date = #{grantDate}
+          AND is_active = 1
+    </select>
+
+    <insert id="insertUsageLog"
+            parameterType="heyso.HeysoDiaryBackEnd.aiQuota.model.AiQuotaUsageLog"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO tb_ai_quota_usage_log (
+            user_id,
+            usage_date,
+            feature_type,
+            feature_ref_id,
+            status,
+            is_active,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{userId},
+            #{usageDate},
+            #{featureType},
+            #{featureRefId},
+            #{status},
+            1,
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <update id="releaseUsageLog">
+        UPDATE tb_ai_quota_usage_log
+        SET
+            status = 'RELEASED',
+            updated_at = NOW()
+        WHERE id = #{id}
+          AND is_active = 1
+    </update>
+</mapper>

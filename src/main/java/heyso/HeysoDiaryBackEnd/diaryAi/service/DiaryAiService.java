@@ -3,6 +3,7 @@ package heyso.HeysoDiaryBackEnd.diaryAi.service;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +20,9 @@ import org.springframework.web.server.ResponseStatusException;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
 import heyso.HeysoDiaryBackEnd.ai.support.AiTimed;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
+import heyso.HeysoDiaryBackEnd.aiQuota.dto.AiQuotaReservation;
+import heyso.HeysoDiaryBackEnd.aiQuota.model.AiFeatureType;
+import heyso.HeysoDiaryBackEnd.aiQuota.service.AiQuotaService;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
 import heyso.HeysoDiaryBackEnd.diaryAi.dto.DiaryAiCommentCreateRequest;
@@ -54,6 +58,9 @@ public class DiaryAiService {
     private final DiaryAiMapper diaryAiMapper;
     private final UserProfileMapper userProfileMapper;
     private final UserAIFeedbackSettingMapper userAIFeedbackSettingMapper;
+    private final AiQuotaService aiQuotaService;
+
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
 
     // 컨텍스트 수집 기본 한도 (최근 일기 / 태그 연관 일기 / 전체 합산)
     private static final int DEFAULT_RECENT_LIMIT = 3;
@@ -178,6 +185,11 @@ public class DiaryAiService {
             diaryAiMapper.insertDiaryAiRunContextList(run.getRunId(), contexts);
         }
 
+        LocalDate usageDate = LocalDate.now(KOREA_ZONE);
+        AiQuotaReservation quotaReservation;
+        quotaReservation = aiQuotaService.reserveQuota(
+                user.getUserId(), usageDate, AiFeatureType.AI_COMMENT, run.getRunId());
+
         // 7 & 8. [2단계] AI 호출 → 댓글·실행기록 저장
         try {
             AiResponse aiResult = diaryAiClient.execute(resolution);
@@ -205,14 +217,19 @@ public class DiaryAiService {
                     run.getRunId(),
                     comment.getAiCommentId(),
                     comment.getContentMd(),
-                    comment.getCreatedAt());
-        } catch (ResponseStatusException e) {
-            // AI 호출 실패 — 실행 기록을 ERROR 로 마감 후 예외 재전파
-            diaryAiMapper.updateDiaryAiRunError(run.getRunId(), "LLM_ERROR", safeErrorMessage(e.getReason()));
-            throw e;
+                    comment.getCreatedAt(),
+                    quotaReservation.getStatusResponse().getRemainingCount(),
+                    quotaReservation.getStatusResponse().getDailyLimit());
         } catch (Exception e) {
-            diaryAiMapper.updateDiaryAiRunError(run.getRunId(), "UNEXPECTED_ERROR", safeErrorMessage(e.getMessage()));
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI comment generation failed");
+            // AI 호출 실패 — 실행 기록을 ERROR 로 마감 후 예외 재전파
+            aiQuotaService.releaseQuota(user.getUserId(), usageDate, quotaReservation.getUsageLogId());
+            if (e instanceof ResponseStatusException responseStatusException) {
+                diaryAiMapper.updateDiaryAiRunError(
+                        run.getRunId(), "LLM_ERROR", safeErrorMessage(responseStatusException.getReason()));
+                throw responseStatusException;
+            }
+            diaryAiMapper.updateDiaryAiRunError(run.getRunId(), "LLM_ERROR", safeErrorMessage(e.getMessage()));
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI comment generation failed", e);
         }
     }
 
