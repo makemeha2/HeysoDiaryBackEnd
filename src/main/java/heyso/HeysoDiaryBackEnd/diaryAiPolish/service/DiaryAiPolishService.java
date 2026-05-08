@@ -11,12 +11,15 @@ import org.springframework.web.server.ResponseStatusException;
 
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
 import heyso.HeysoDiaryBackEnd.ai.support.AiTimed;
+import heyso.HeysoDiaryBackEnd.aiQuota.dto.AiQuotaReservation;
+import heyso.HeysoDiaryBackEnd.aiQuota.exception.AiQuotaExceededException;
+import heyso.HeysoDiaryBackEnd.aiQuota.model.AiFeatureType;
+import heyso.HeysoDiaryBackEnd.aiQuota.service.AiQuotaService;
 import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.dto.DiaryAiPolishRequest;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.dto.DiaryAiPolishResponse;
-import heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishDailyUsage;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishResult;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.support.DiaryAiPolishAiClient;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.type.DiaryAiPolishFailureCode;
@@ -30,7 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DiaryAiPolishService {
 
-    private static final int DAILY_LIMIT = 3;
     private static final int MIN_CONTENT_LENGTH = 50;
     private static final int MAX_CONTENT_LENGTH = 2000;
     private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
@@ -38,6 +40,7 @@ public class DiaryAiPolishService {
     private final DiaryMapper diaryMapper;
     private final DiaryAiPolishAiClient diaryAiPolishAiClient;
     private final DiaryAiPolishPersistenceService persistenceService;
+    private final AiQuotaService aiQuotaService;
 
     @AiTimed(domain = "diaryAiPolish", phase = "total")
     public DiaryAiPolishResponse requestPolish(DiaryAiPolishRequest request) {
@@ -52,11 +55,10 @@ public class DiaryAiPolishService {
         LocalDate usageDate = LocalDate.now(KOREA_ZONE);
         Long polishLogId = persistenceService.createRequestLog(user.getUserId(), diaryId, content.length());
 
-        boolean usageReserved = false;
+        AiQuotaReservation quotaReservation = null;
 
         try {
-            DiaryAiPolishDailyUsage usage = persistenceService.reserveUsage(user.getUserId(), usageDate, DAILY_LIMIT);
-            usageReserved = true;
+            quotaReservation = aiQuotaService.reserveQuota(user.getUserId(), usageDate, AiFeatureType.POLISH, polishLogId);
 
             AiResponse aiCallResult = diaryAiPolishAiClient.polish(content, mode);
             DiaryAiPolishResult result = persistenceService.saveSuccess(
@@ -66,30 +68,30 @@ public class DiaryAiPolishService {
                     content,
                     aiCallResult.content());
 
-            int quotaLimit = usage.getQuotaLimit() == null ? DAILY_LIMIT : usage.getQuotaLimit();
-            int usedCount = usage.getUsedCount() == null ? 0 : usage.getUsedCount();
-            int remainingCount = Math.max(0, quotaLimit - usedCount);
-
             return DiaryAiPolishResponse.of(
                     polishLogId,
                     result.getOriginalContent(),
                     result.getPolishedContent(),
-                    remainingCount,
+                    quotaReservation.getStatusResponse().getRemainingCount(),
+                    quotaReservation.getStatusResponse().getDailyLimit(),
                     "Y".equals(result.getAppliedYn()),
                     "POLISHED");
+        } catch (AiQuotaExceededException e) {
+            handleFailure(polishLogId, user.getUserId(), usageDate, null, e);
+            throw e;
         } catch (ResponseStatusException e) {
             logAiFailureIfApplicable(user.getUserId(), diaryId, polishLogId, e);
-            handleFailure(polishLogId, user.getUserId(), usageDate, usageReserved, e);
+            handleFailure(polishLogId, user.getUserId(), usageDate, quotaReservation, e);
             throw e;
         } catch (DataAccessException e) {
             log.error("Diary AI polish DB processing failed. userId={}, diaryId={}, logId={}, message={}",
                     user.getUserId(), diaryId, polishLogId, e.getMessage(), e);
-            handleFailure(polishLogId, user.getUserId(), usageDate, usageReserved, e);
+            handleFailure(polishLogId, user.getUserId(), usageDate, quotaReservation, e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Diary AI polish DB processing failed");
         } catch (Exception e) {
             log.error("Unexpected diary AI polish failure. userId={}, diaryId={}, logId={}",
                     user.getUserId(), diaryId, polishLogId, e);
-            handleFailure(polishLogId, user.getUserId(), usageDate, usageReserved, e);
+            handleFailure(polishLogId, user.getUserId(), usageDate, quotaReservation, e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Diary AI polish request failed");
         }
     }
@@ -132,27 +134,27 @@ public class DiaryAiPolishService {
     private void handleFailure(Long polishLogId,
             Long userId,
             LocalDate usageDate,
-            boolean usageReserved,
+            AiQuotaReservation quotaReservation,
             Throwable throwable) {
-        DiaryAiPolishFailureCode failureCode = persistenceService.resolveFailureCode(throwable);
+        DiaryAiPolishFailureCode failureCode = throwable instanceof AiQuotaExceededException
+                ? DiaryAiPolishFailureCode.DAILY_LIMIT_EXCEEDED
+                : persistenceService.resolveFailureCode(throwable);
 
         try {
-            if (usageReserved && !isDailyLimitExceeded(throwable)) {
-                persistenceService.releaseUsageAndMarkFailed(polishLogId, userId, usageDate, failureCode);
-            } else {
-                persistenceService.markFailed(polishLogId, failureCode);
+            if (quotaReservation != null && !(throwable instanceof AiQuotaExceededException)) {
+                aiQuotaService.releaseQuota(userId, usageDate, quotaReservation.getUsageLogId());
             }
+        } catch (Exception quotaReleaseException) {
+            log.error("Failed to release diary AI polish quota. userId={}, logId={}", userId, polishLogId,
+                    quotaReleaseException);
+        }
+
+        try {
+            persistenceService.markFailed(polishLogId, failureCode);
         } catch (Exception logUpdateException) {
             log.error("Failed to finalize diary AI polish failure. userId={}, logId={}", userId, polishLogId,
                     logUpdateException);
         }
-    }
-
-    private boolean isDailyLimitExceeded(Throwable throwable) {
-        if (!(throwable instanceof ResponseStatusException responseStatusException)) {
-            return false;
-        }
-        return HttpStatus.TOO_MANY_REQUESTS.equals(HttpStatus.resolve(responseStatusException.getStatusCode().value()));
     }
 
     private void logAiFailureIfApplicable(Long userId, Long diaryId, Long polishLogId, ResponseStatusException exception) {

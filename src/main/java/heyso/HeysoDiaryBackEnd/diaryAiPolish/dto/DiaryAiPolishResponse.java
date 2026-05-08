@@ -13,6 +13,7 @@ public class DiaryAiPolishResponse {
     private String originalContent;
     private String polishedContent;
     private Integer remainingCount;
+    private Integer dailyLimit;
     private boolean applied;
     private String status;
 
@@ -20,8 +21,10 @@ public class DiaryAiPolishResponse {
             String originalContent,
             String polishedContent,
             Integer remainingCount,
+            Integer dailyLimit,
             boolean applied,
             String status) {
-        return new DiaryAiPolishResponse(polishLogId, originalContent, polishedContent, remainingCount, applied, status);
+        return new DiaryAiPolishResponse(polishLogId, originalContent, polishedContent, remainingCount, dailyLimit,
+                applied, status);
     }
 }

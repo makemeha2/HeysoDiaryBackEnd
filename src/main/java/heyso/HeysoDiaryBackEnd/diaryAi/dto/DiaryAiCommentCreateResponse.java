@@ -15,14 +15,18 @@ public class DiaryAiCommentCreateResponse {
     private Long aiCommentId;
     private String contentMd;
     private LocalDateTime createdAt;
+    private Integer remainingCount;
+    private Integer dailyLimit;
 
     public static DiaryAiCommentCreateResponse of(
         Long runId,
         Long aiCommentId,
         String contentMd,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        Integer remainingCount,
+        Integer dailyLimit
     ) {
-        return new DiaryAiCommentCreateResponse(runId, aiCommentId, contentMd, createdAt);
+        return new DiaryAiCommentCreateResponse(runId, aiCommentId, contentMd, createdAt, remainingCount, dailyLimit);
     }
 }
 

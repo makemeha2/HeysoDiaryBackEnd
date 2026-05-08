@@ -4,17 +4,6 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="heyso.HeysoDiaryBackEnd.diaryAiPolish.mapper.DiaryAiPolishMapper">
 
-    <resultMap id="DiaryAiPolishDailyUsageResultMap"
-               type="heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishDailyUsage">
-        <id column="id" property="id"/>
-        <result column="user_id" property="userId"/>
-        <result column="usage_date" jdbcType="DATE" property="usageDate"/>
-        <result column="quota_limit" property="quotaLimit"/>
-        <result column="used_count" property="usedCount"/>
-        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
-        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
-    </resultMap>
-
     <resultMap id="DiaryAiPolishLogResultMap"
                type="heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishLog">
         <id column="id" property="id"/>
@@ -42,61 +31,6 @@
         <result column="applied_at" jdbcType="TIMESTAMP" property="appliedAt"/>
         <result column="saved_at" jdbcType="TIMESTAMP" property="savedAt"/>
     </resultMap>
-
-    <insert id="insertDailyUsageIfAbsent">
-        INSERT IGNORE INTO tb_diary_ai_polish_daily_usage (
-            user_id,
-            usage_date,
-            quota_limit,
-            used_count,
-            created_at,
-            updated_at
-        )
-        VALUES (
-            #{userId},
-            #{usageDate},
-            #{quotaLimit},
-            0,
-            NOW(),
-            NOW()
-        )
-    </insert>
-
-    <select id="selectDailyUsage" resultMap="DiaryAiPolishDailyUsageResultMap">
-        SELECT
-            id,
-            user_id,
-            usage_date,
-            quota_limit,
-            used_count,
-            created_at,
-            updated_at
-        FROM tb_diary_ai_polish_daily_usage
-        WHERE user_id = #{userId}
-          AND usage_date = #{usageDate}
-    </select>
-
-    <update id="incrementUsageIfAvailable">
-        UPDATE tb_diary_ai_polish_daily_usage
-        SET
-            used_count = used_count + 1,
-            updated_at = NOW()
-        WHERE user_id = #{userId}
-          AND usage_date = #{usageDate}
-          AND used_count &lt; #{quotaLimit}
-    </update>
-
-    <update id="decrementUsage">
-        UPDATE tb_diary_ai_polish_daily_usage
-        SET
-            used_count = CASE
-                WHEN used_count &gt; 0 THEN used_count - 1
-                ELSE 0
-            END,
-            updated_at = NOW()
-        WHERE user_id = #{userId}
-          AND usage_date = #{usageDate}
-    </update>
 
     <insert id="insertPolishLog"
             parameterType="heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishLog"
