@@ -26,11 +26,15 @@ import org.springframework.web.server.ResponseStatusException;
 
 import heyso.HeysoDiaryBackEnd.ai.client.AiProvider;
 import heyso.HeysoDiaryBackEnd.ai.client.AiResponse;
+import heyso.HeysoDiaryBackEnd.aiQuota.dto.AiQuotaReservation;
+import heyso.HeysoDiaryBackEnd.aiQuota.dto.AiQuotaStatusResponse;
+import heyso.HeysoDiaryBackEnd.aiQuota.exception.AiQuotaExceededException;
+import heyso.HeysoDiaryBackEnd.aiQuota.model.AiFeatureType;
+import heyso.HeysoDiaryBackEnd.aiQuota.service.AiQuotaService;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.dto.DiaryAiPolishRequest;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.dto.DiaryAiPolishResponse;
-import heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishDailyUsage;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.model.DiaryAiPolishResult;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.support.DiaryAiPolishAiClient;
 import heyso.HeysoDiaryBackEnd.diaryAiPolish.type.DiaryAiPolishFailureCode;
@@ -48,6 +52,9 @@ class DiaryAiPolishServiceTest {
 
     @Mock
     private DiaryAiPolishPersistenceService persistenceService;
+
+    @Mock
+    private AiQuotaService aiQuotaService;
 
     @InjectMocks
     private DiaryAiPolishService diaryAiPolishService;
@@ -92,28 +99,26 @@ class DiaryAiPolishServiceTest {
     void requestPolish_fails_whenDailyLimitExceeded_andKeepsFailureLog() {
         when(diaryMapper.selectDiaryById(10L)).thenReturn(ownedDiary(10L, 1L));
         when(persistenceService.createRequestLog(1L, 10L, 60)).thenReturn(101L);
-        when(persistenceService.reserveUsage(eq(1L), any(LocalDate.class), eq(3)))
-                .thenThrow(new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Daily AI polish limit exceeded"));
-        when(persistenceService.resolveFailureCode(any())).thenReturn(DiaryAiPolishFailureCode.DAILY_LIMIT_EXCEEDED);
+        when(aiQuotaService.reserveQuota(eq(1L), any(LocalDate.class), eq(AiFeatureType.POLISH), eq(101L)))
+                .thenThrow(new AiQuotaExceededException(3));
 
         DiaryAiPolishRequest request = request(10L, "a".repeat(60));
 
         assertThatThrownBy(() -> diaryAiPolishService.requestPolish(request))
-                .isInstanceOf(ResponseStatusException.class)
-                .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
-                .isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+                .isInstanceOf(AiQuotaExceededException.class);
 
         verify(persistenceService).markFailed(101L, DiaryAiPolishFailureCode.DAILY_LIMIT_EXCEEDED);
-        verify(persistenceService, never()).releaseUsageAndMarkFailed(any(), any(), any(), any());
+        verify(aiQuotaService, never()).releaseQuota(any(), any(), any());
     }
 
     @Test
     @DisplayName("글다듬기 요청 시 AI 호출에 실패하면 사용량을 복구한다")
     void requestPolish_releasesUsage_whenAiCallFails() {
-        DiaryAiPolishDailyUsage usage = usage(3, 1);
+        AiQuotaReservation quotaReservation = quotaReservation(3, 2, 201L);
         when(diaryMapper.selectDiaryById(10L)).thenReturn(ownedDiary(10L, 1L));
         when(persistenceService.createRequestLog(1L, 10L, 60)).thenReturn(102L);
-        when(persistenceService.reserveUsage(eq(1L), any(LocalDate.class), eq(3))).thenReturn(usage);
+        when(aiQuotaService.reserveQuota(eq(1L), any(LocalDate.class), eq(AiFeatureType.POLISH), eq(102L)))
+                .thenReturn(quotaReservation);
         when(diaryAiPolishAiClient.polish("a".repeat(60), DiaryAiPolishMode.STRICT))
                 .thenThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI polish request failed"));
         when(persistenceService.resolveFailureCode(any())).thenReturn(DiaryAiPolishFailureCode.AI_CALL_FAILED);
@@ -125,14 +130,14 @@ class DiaryAiPolishServiceTest {
                 .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_GATEWAY);
 
-        verify(persistenceService).releaseUsageAndMarkFailed(eq(102L), eq(1L), any(LocalDate.class),
-                eq(DiaryAiPolishFailureCode.AI_CALL_FAILED));
+        verify(aiQuotaService).releaseQuota(eq(1L), any(LocalDate.class), eq(201L));
+        verify(persistenceService).markFailed(102L, DiaryAiPolishFailureCode.AI_CALL_FAILED);
     }
 
     @Test
     @DisplayName("글다듬기 요청 성공 시 로그와 결과를 저장하고 남은 횟수를 반환한다")
     void requestPolish_savesLogAndResult_onSuccess_andUsesQuotaLimitForRemainingCount() {
-        DiaryAiPolishDailyUsage usage = usage(5, 2);
+        AiQuotaReservation quotaReservation = quotaReservation(5, 2, 202L);
         DiaryAiPolishResult result = new DiaryAiPolishResult();
         result.setOriginalContent("a".repeat(60));
         result.setPolishedContent("polished");
@@ -140,7 +145,8 @@ class DiaryAiPolishServiceTest {
 
         when(diaryMapper.selectDiaryById(10L)).thenReturn(ownedDiary(10L, 1L));
         when(persistenceService.createRequestLog(1L, 10L, 60)).thenReturn(103L);
-        when(persistenceService.reserveUsage(eq(1L), any(LocalDate.class), eq(3))).thenReturn(usage);
+        when(aiQuotaService.reserveQuota(eq(1L), any(LocalDate.class), eq(AiFeatureType.POLISH), eq(103L)))
+                .thenReturn(quotaReservation);
         when(diaryAiPolishAiClient.polish("a".repeat(60), DiaryAiPolishMode.STRICT))
                 .thenReturn(new AiResponse("polished", AiProvider.OPENAI, "gpt-4o-mini", "req-1", 1, 1, 2));
         when(persistenceService.saveSuccess(103L, 1L, 10L, "a".repeat(60), "polished")).thenReturn(result);
@@ -181,11 +187,8 @@ class DiaryAiPolishServiceTest {
         return request;
     }
 
-    private DiaryAiPolishDailyUsage usage(int quotaLimit, int usedCount) {
-        DiaryAiPolishDailyUsage usage = new DiaryAiPolishDailyUsage();
-        usage.setQuotaLimit(quotaLimit);
-        usage.setUsedCount(usedCount);
-        return usage;
+    private AiQuotaReservation quotaReservation(int dailyLimit, int usedCount, Long usageLogId) {
+        return new AiQuotaReservation(AiQuotaStatusResponse.of(usedCount, dailyLimit), usageLogId);
     }
 
     private DiarySummary ownedDiary(Long diaryId, Long authorId) {
