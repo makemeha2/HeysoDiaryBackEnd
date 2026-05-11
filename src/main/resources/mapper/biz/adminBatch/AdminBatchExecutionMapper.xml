@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.adminBatch.mapper.AdminBatchExecutionMapper">
+
+    <sql id="AdminBatchExecutionSelect">
+        SELECT
+            abe.execution_id,
+            abe.batch_key,
+            abe.trigger_type,
+            abe.status,
+            abe.requested_by,
+            u.email AS requested_by_email,
+            abe.started_at,
+            abe.finished_at,
+            abe.duration_ms,
+            abe.success_count,
+            abe.failure_count,
+            abe.message,
+            abe.error_message
+        FROM tb_admin_batch_execution abe
+        LEFT JOIN tb_user u
+            ON u.user_id = abe.requested_by
+    </sql>
+
+    <insert id="insertRunningExecution"
+            parameterType="heyso.HeysoDiaryBackEnd.adminBatch.model.AdminBatchExecution"
+            useGeneratedKeys="true"
+            keyProperty="executionId">
+        INSERT INTO tb_admin_batch_execution (
+            batch_key,
+            trigger_type,
+            status,
+            requested_by,
+            started_at,
+            success_count,
+            failure_count,
+            message
+        )
+        VALUES (
+            #{batchKey},
+            #{triggerType},
+            'RUNNING',
+            #{requestedBy},
+            NOW(),
+            0,
+            0,
+            #{message}
+        )
+    </insert>
+
+    <select id="selectLatestExecution"
+            resultType="heyso.HeysoDiaryBackEnd.adminBatch.dto.AdminBatchExecutionRow">
+        <include refid="AdminBatchExecutionSelect"/>
+        WHERE abe.batch_key = #{batchKey}
+        ORDER BY abe.started_at DESC, abe.execution_id DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectExecutionPage"
+            resultType="heyso.HeysoDiaryBackEnd.adminBatch.dto.AdminBatchExecutionRow">
+        <include refid="AdminBatchExecutionSelect"/>
+        WHERE abe.batch_key = #{batchKey}
+        ORDER BY abe.started_at DESC, abe.execution_id DESC
+        LIMIT #{request.offset}, #{request.size}
+    </select>
+
+    <select id="countExecutions" resultType="long">
+        SELECT COUNT(*)
+        FROM tb_admin_batch_execution
+        WHERE batch_key = #{batchKey}
+    </select>
+
+    <update id="updateExecutionSuccess">
+        UPDATE tb_admin_batch_execution
+        SET
+            status = 'SUCCESS',
+            finished_at = NOW(),
+            duration_ms = #{durationMs},
+            success_count = #{successCount},
+            failure_count = #{failureCount},
+            message = #{message},
+            error_message = NULL,
+            updated_at = NOW()
+        WHERE execution_id = #{executionId}
+          AND status = 'RUNNING'
+    </update>
+
+    <update id="updateExecutionFailed">
+        UPDATE tb_admin_batch_execution
+        SET
+            status = 'FAILED',
+            finished_at = NOW(),
+            duration_ms = #{durationMs},
+            success_count = #{successCount},
+            failure_count = #{failureCount},
+            message = #{message},
+            error_message = #{errorMessage},
+            updated_at = NOW()
+        WHERE execution_id = #{executionId}
+          AND status = 'RUNNING'
+    </update>
+
+</mapper>
