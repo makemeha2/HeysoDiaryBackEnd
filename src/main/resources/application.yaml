@@ -58,6 +58,11 @@ app:
     google:
       client-id: 804003243997-rp87n56snt9sndn5mtmlidhtaou944tv.apps.googleusercontent.com
 
+  diary:
+    summary:
+      scheduler:
+        cron: ${DIARY_SUMMARY_SCHEDULER_CRON:0 0 3 * * *}
+
   ai:
     default-provider: OPENAI
     default-chat-model: gpt-4o-mini

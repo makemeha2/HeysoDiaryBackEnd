@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.diary.mapper.DiarySummaryMapper">
+
+    <resultMap id="DiarySummaryCacheResultMap" type="heyso.HeysoDiaryBackEnd.diary.model.DiarySummaryCache">
+        <id column="user_id" property="userId"/>
+        <result column="total_diary_count" property="totalDiaryCount"/>
+        <result column="current_streak_days" property="currentStreakDays"/>
+        <result column="last_diary_date" jdbcType="DATE" property="lastDiaryDate"/>
+        <result column="generated_at" jdbcType="TIMESTAMP" property="generatedAt"/>
+        <result column="dirty" property="dirty"/>
+    </resultMap>
+
+    <resultMap id="DiaryTagSummaryCacheResultMap" type="heyso.HeysoDiaryBackEnd.diary.model.DiaryTagSummaryCache">
+        <result column="user_id" property="userId"/>
+        <result column="period_type" property="periodType"/>
+        <result column="period_key" property="periodKey"/>
+        <result column="tag" property="tag"/>
+        <result column="tag_count" property="tagCount"/>
+        <result column="rank_no" property="rankNo"/>
+        <result column="generated_at" jdbcType="TIMESTAMP" property="generatedAt"/>
+    </resultMap>
+
+    <select id="selectSummaryCache" resultMap="DiarySummaryCacheResultMap">
+        SELECT
+            user_id,
+            total_diary_count,
+            current_streak_days,
+            last_diary_date,
+            generated_at,
+            dirty
+        FROM tb_diary_summary_cache
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectTagSummaryCache" resultMap="DiaryTagSummaryCacheResultMap">
+        SELECT
+            user_id,
+            period_type,
+            period_key,
+            tag,
+            tag_count,
+            rank_no,
+            generated_at
+        FROM tb_diary_tag_summary_cache
+        WHERE user_id = #{userId}
+        ORDER BY
+            CASE WHEN period_type = 'ALL' THEN 0 ELSE 1 END,
+            period_key DESC,
+            rank_no ASC
+    </select>
+
+    <select id="countActiveDiaries" resultType="long">
+        SELECT COUNT(*)
+        FROM tb_diary d
+        WHERE d.user_id = #{userId}
+          AND d.is_deleted = 0
+    </select>
+
+    <select id="selectLastDiaryDate" resultType="java.time.LocalDate">
+        SELECT MAX(d.diary_date)
+        FROM tb_diary d
+        WHERE d.user_id = #{userId}
+          AND d.is_deleted = 0
+    </select>
+
+    <select id="selectDistinctDiaryDatesDesc" resultType="java.time.LocalDate">
+        SELECT DISTINCT d.diary_date
+        FROM tb_diary d
+        WHERE d.user_id = #{userId}
+          AND d.is_deleted = 0
+          AND d.diary_date &lt;= #{fromDate}
+        ORDER BY d.diary_date DESC
+    </select>
+
+    <select id="selectAllTimeTopTags" resultType="heyso.HeysoDiaryBackEnd.diary.model.DiaryTagCount">
+        SELECT
+            t.tag_name AS tag,
+            COUNT(*) AS tag_count
+        FROM tb_diary d
+        INNER JOIN tb_diary_tag dt ON dt.diary_id = d.diary_id
+        INNER JOIN tb_tag t ON t.tag_id = dt.tag_id
+        WHERE d.user_id = #{userId}
+          AND d.is_deleted = 0
+        GROUP BY t.tag_name
+        ORDER BY COUNT(*) DESC, t.tag_name ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectYearlyTopTags" resultType="heyso.HeysoDiaryBackEnd.diary.model.DiaryYearlyTagCount">
+        SELECT ranked.diary_year AS year,
+               ranked.tag AS tag,
+               ranked.tag_count AS tag_count
+        FROM (
+            SELECT
+                YEAR(d.diary_date) AS diary_year,
+                t.tag_name AS tag,
+                COUNT(*) AS tag_count,
+                ROW_NUMBER() OVER (
+                    PARTITION BY YEAR(d.diary_date)
+                    ORDER BY COUNT(*) DESC, t.tag_name ASC
+                ) AS rn
+            FROM tb_diary d
+            INNER JOIN tb_diary_tag dt ON dt.diary_id = d.diary_id
+            INNER JOIN tb_tag t ON t.tag_id = dt.tag_id
+            WHERE d.user_id = #{userId}
+              AND d.is_deleted = 0
+            GROUP BY YEAR(d.diary_date), t.tag_name
+        ) ranked
+        WHERE ranked.rn &lt;= #{limit}
+        ORDER BY ranked.diary_year DESC, ranked.rn ASC
+    </select>
+
+    <insert id="upsertSummaryCache">
+        INSERT INTO tb_diary_summary_cache (
+            user_id,
+            total_diary_count,
+            current_streak_days,
+            last_diary_date,
+            generated_at,
+            dirty
+        )
+        VALUES (
+            #{userId},
+            #{totalDiaryCount},
+            #{currentStreakDays},
+            #{lastDiaryDate},
+            NOW(),
+            0
+        )
+        ON DUPLICATE KEY UPDATE
+            total_diary_count = VALUES(total_diary_count),
+            current_streak_days = VALUES(current_streak_days),
+            last_diary_date = VALUES(last_diary_date),
+            generated_at = NOW(),
+            dirty = 0
+    </insert>
+
+    <delete id="deleteTagSummaryCache">
+        DELETE FROM tb_diary_tag_summary_cache
+        WHERE user_id = #{userId}
+    </delete>
+
+    <insert id="insertTagSummaryCaches">
+        INSERT INTO tb_diary_tag_summary_cache (
+            user_id,
+            period_type,
+            period_key,
+            tag,
+            tag_count,
+            rank_no,
+            generated_at
+        )
+        VALUES
+        <foreach collection="items" item="item" separator=",">
+            (
+                #{item.userId},
+                #{item.periodType},
+                #{item.periodKey},
+                #{item.tag},
+                #{item.tagCount},
+                #{item.rankNo},
+                NOW()
+            )
+        </foreach>
+    </insert>
+
+    <insert id="markSummaryDirty">
+        INSERT INTO tb_diary_summary_cache (
+            user_id,
+            total_diary_count,
+            current_streak_days,
+            last_diary_date,
+            generated_at,
+            dirty
+        )
+        VALUES (#{userId}, 0, 0, NULL, NOW(), 1)
+        ON DUPLICATE KEY UPDATE
+            dirty = 1
+    </insert>
+
+    <select id="selectDirtyUserIds" resultType="long">
+        SELECT user_id
+        FROM tb_diary_summary_cache
+        WHERE dirty = 1
+        ORDER BY user_id
+    </select>
+</mapper>

@@ -23,4 +23,16 @@ public class AsyncConfig {
         // ✅ SecurityContext 전파
         return new DelegatingSecurityContextAsyncTaskExecutor(delegate);
     }
+
+    @Bean(name = "adminBatchExecutor")
+    public Executor adminBatchExecutor() {
+        ThreadPoolTaskExecutor delegate = new ThreadPoolTaskExecutor();
+        delegate.setCorePoolSize(1);
+        delegate.setMaxPoolSize(2);
+        delegate.setQueueCapacity(20);
+        delegate.setThreadNamePrefix("admin-batch-");
+        delegate.initialize();
+
+        return delegate;
+    }
 }
