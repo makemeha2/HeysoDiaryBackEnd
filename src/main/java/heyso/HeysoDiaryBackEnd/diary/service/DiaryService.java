@@ -38,9 +38,11 @@ public class DiaryService {
             "proud");
 
     private final DiaryMapper diaryMapper;
+    private final DiarySummaryService diarySummaryService;
 
-    public DiaryService(DiaryMapper diaryMapper) {
+    public DiaryService(DiaryMapper diaryMapper, DiarySummaryService diarySummaryService) {
         this.diaryMapper = diaryMapper;
+        this.diarySummaryService = diarySummaryService;
     }
 
     public DiaryListResponse getDiaryList(DiaryListRequest request) {
@@ -112,6 +114,7 @@ public class DiaryService {
         diaryMapper.insertDiary(diary);
 
         upsertDiaryTags(diary.getDiaryId(), request.getTags());
+        diarySummaryService.markSummaryDirty(user.getUserId());
 
         return DiaryCreateResponse.of(diary.getDiaryId());
     }
@@ -141,6 +144,7 @@ public class DiaryService {
 
         diaryMapper.deleteDiaryTags(diaryId);
         upsertDiaryTags(diaryId, request.getTags());
+        diarySummaryService.markSummaryDirty(user.getUserId());
     }
 
     @Transactional
@@ -157,6 +161,7 @@ public class DiaryService {
 
         // diaryMapper.deleteDiaryTags(diaryId);
         diaryMapper.deleteDiary(diaryId);
+        diarySummaryService.markSummaryDirty(user.getUserId());
     }
 
     private List<String> sanitizeTags(List<String> rawTags) {
