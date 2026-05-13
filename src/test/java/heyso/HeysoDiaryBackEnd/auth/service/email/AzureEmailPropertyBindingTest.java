@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.util.StringUtils;
+import org.springframework.test.context.TestPropertySource;
 
 import com.azure.communication.email.EmailClient;
 
@@ -19,6 +19,7 @@ import heyso.HeysoDiaryBackEnd.mail.sender.LoggingEmailSender;
         LoggingEmailSender.class
 })
 @ActiveProfiles("local")
+@TestPropertySource(properties = "azure.communication.email.connection-string=")
 class AzureEmailPropertyBindingTest {
 
     @Value("${azure.communication.email.connection-string:}")
@@ -31,14 +32,9 @@ class AzureEmailPropertyBindingTest {
     private EmailClient emailClient;
 
     @Test
-    void localAzureEmailProperties_areLoaded_andClientBeanIsCreated() {
+    void localAzureEmailProperties_areLoaded_withoutCreatingRealClientInTests() {
         assertThat(senderAddress).isEqualTo("DoNotReply@heyso-diary.com");
-        if (StringUtils.hasText(connectionString)) {
-            assertThat(connectionString).contains("endpoint=https://heysocommservices.korea.communication.azure.com/");
-            assertThat(connectionString).contains("accesskey=");
-            assertThat(emailClient).isNotNull();
-            return;
-        }
+        assertThat(connectionString).isBlank();
         assertThat(emailClient).isNull();
     }
 }

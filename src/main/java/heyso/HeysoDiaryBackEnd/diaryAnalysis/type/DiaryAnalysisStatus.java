@@ -1,4 +1,4 @@
-package heyso.HeysoDiaryBackEnd.diaryAnalysis.model;
+package heyso.HeysoDiaryBackEnd.diaryAnalysis.type;
 
 public final class DiaryAnalysisStatus {
     public static final String DIRTY = "DIRTY";

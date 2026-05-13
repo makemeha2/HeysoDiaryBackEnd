@@ -1,4 +1,4 @@
-package heyso.HeysoDiaryBackEnd.diaryAnalysis.service;
+package heyso.HeysoDiaryBackEnd.diaryAnalysis.support;
 
 import java.util.List;
 import java.util.Map;
@@ -13,7 +13,10 @@ import heyso.HeysoDiaryBackEnd.ai.support.AiCallExecutor;
 import heyso.HeysoDiaryBackEnd.ai.support.AiModelResolver;
 import heyso.HeysoDiaryBackEnd.ai.support.AiPromptResolver;
 import heyso.HeysoDiaryBackEnd.aiTemplate.model.AiRuntimeProfile;
-import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisErrorCode;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisErrorCode;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisException;
+import heyso.HeysoDiaryBackEnd.monitoring.service.MonitoringEventService;
+import heyso.HeysoDiaryBackEnd.monitoring.support.MonitoringEventCode;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -25,14 +28,17 @@ public class DiaryAnalysisAiClient {
     private final AiPromptResolver aiPromptResolver;
     private final AiModelResolver aiModelResolver;
     private final AiCallExecutor aiCallExecutor;
+    private final MonitoringEventService monitoringEventService;
 
     public ResolvedAnalysisPrompt resolve(Map<String, String> variables) {
         try {
-            AiPromptResolver.BindingResolution resolution =
-                    aiPromptResolver.resolve(DOMAIN_TYPE, FEATURE_KEY, variables);
+            AiPromptResolver.BindingResolution resolution = aiPromptResolver.resolve(DOMAIN_TYPE, FEATURE_KEY,
+                    variables);
             AiModelResolver.ResolvedModel resolvedModel = aiModelResolver.resolve(resolution.profile());
             return new ResolvedAnalysisPrompt(resolution, resolvedModel);
         } catch (Exception e) {
+            monitoringEventService.logError(MonitoringEventCode.AI_CALL_FAIL.name(),
+                    "DIARY_ANALYSIS prompt resolution failed", e, null);
             throw new DiaryAnalysisException(DiaryAnalysisErrorCode.PROMPT_BINDING_NOT_FOUND,
                     "DIARY_ANALYSIS prompt binding resolution failed", e);
         }
@@ -60,6 +66,8 @@ public class DiaryAnalysisAiClient {
         } catch (DiaryAnalysisException e) {
             throw e;
         } catch (Exception e) {
+            monitoringEventService.logError(MonitoringEventCode.AI_CALL_FAIL.name(),
+                    "DIARY_ANALYSIS call failed", e, null);
             throw new DiaryAnalysisException(DiaryAnalysisErrorCode.AI_CALL_FAILED,
                     "DIARY_ANALYSIS AI call failed", e);
         }

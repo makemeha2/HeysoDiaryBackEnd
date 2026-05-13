@@ -10,23 +10,20 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import heyso.HeysoDiaryBackEnd.ai.support.AiPromptResolver;
 import heyso.HeysoDiaryBackEnd.adminBatch.support.AdminBatchRunResult;
 import heyso.HeysoDiaryBackEnd.diary.mapper.DiaryMapper;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.mapper.DiaryAnalysisMapper;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysis;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisCandidate;
-import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisErrorCode;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisResult;
-import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryEvent;
-import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryTraitEvidence;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.TraitDefinition;
-import heyso.HeysoDiaryBackEnd.diaryAnalysis.service.DiaryAnalysisAiClient.ResolvedAnalysisPrompt;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.support.DiaryAnalysisAiClient;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.support.DiaryAnalysisAiClient.ResolvedAnalysisPrompt;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.support.DiaryAnalysisResponseParser;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisErrorCode;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,7 +40,7 @@ public class DiaryAnalysisService {
     private final DiaryAnalysisAiClient aiClient;
     private final DiaryAnalysisResponseParser responseParser;
     private final ObjectMapper objectMapper;
-    private final TransactionTemplate transactionTemplate;
+    private final DiaryAnalysisPersistenceService persistenceService;
 
     @Value("${app.diary.analysis.batch-size:20}")
     private int batchSize;
@@ -100,84 +97,20 @@ public class DiaryAnalysisService {
         DiaryAnalysis analysis = null;
         try {
             ResolvedAnalysisPrompt prompt = aiClient.resolve(buildVariables(candidate, tags, referenceData));
-            analysis = createAnalysis(candidate, prompt.bindingResolution());
+            analysis = persistenceService.createAnalysis(candidate, prompt.bindingResolution());
             String content = aiClient.execute(prompt);
             DiaryAnalysisResult result = responseParser.parse(content, candidate,
                     referenceData.eventTypes(), referenceData.emotions(), referenceData.traitKeys());
-            completeSuccess(analysis, result);
+            persistenceService.completeSuccess(analysis, result);
             return ProcessResult.SUCCESS;
         } catch (DiaryAnalysisException e) {
-            completeFailure(candidate, analysis, e.getErrorCode(), e.getMessage(), null);
+            persistenceService.completeFailure(candidate, analysis, e.getErrorCode(), e.getMessage(), null);
             return ProcessResult.FAILED;
         } catch (Exception e) {
-            completeFailure(candidate, analysis, DiaryAnalysisErrorCode.INTERNAL_ERROR,
+            persistenceService.completeFailure(candidate, analysis, DiaryAnalysisErrorCode.INTERNAL_ERROR,
                     "Diary analysis internal error", null);
             throw e;
         }
-    }
-
-    private DiaryAnalysis createAnalysis(DiaryAnalysisCandidate candidate,
-            AiPromptResolver.BindingResolution bindingResolution) {
-        return transactionTemplate.execute(status -> {
-            DiaryAnalysis analysis = new DiaryAnalysis();
-            analysis.setDiaryId(candidate.getDiaryId());
-            analysis.setUserId(candidate.getUserId());
-            analysis.setAnalysisVersion(diaryAnalysisMapper.selectNextAnalysisVersion(candidate.getDiaryId()));
-            analysis.setContentHash(candidate.getContentHash());
-            analysis.setDiaryUpdatedAtSnapshot(candidate.getDiaryUpdatedAt());
-            analysis.setBindingId(bindingResolution.binding().getBindingId());
-            analysis.setSystemTemplateId(bindingResolution.binding().getSystemTemplateId());
-            analysis.setUserTemplateId(bindingResolution.binding().getUserTemplateId());
-            analysis.setRuntimeProfileId(bindingResolution.binding().getRuntimeProfileId());
-            diaryAnalysisMapper.insertDiaryAnalysis(analysis);
-            return analysis;
-        });
-    }
-
-    private void completeSuccess(DiaryAnalysis analysis, DiaryAnalysisResult result) {
-        transactionTemplate.executeWithoutResult(status -> {
-            for (DiaryEvent event : result.events()) {
-                event.setAnalysisId(analysis.getAnalysisId());
-            }
-            for (DiaryTraitEvidence evidence : result.traitEvidence()) {
-                evidence.setAnalysisId(analysis.getAnalysisId());
-            }
-
-            diaryAnalysisMapper.deactivateActiveAnalysis(analysis.getDiaryId(), analysis.getAnalysisId());
-            diaryAnalysisMapper.deactivateActiveEvents(analysis.getDiaryId());
-            diaryAnalysisMapper.deactivateActiveTraitEvidence(analysis.getDiaryId());
-            if (!result.events().isEmpty()) {
-                diaryAnalysisMapper.insertDiaryEvents(result.events());
-            }
-            if (!result.traitEvidence().isEmpty()) {
-                diaryAnalysisMapper.insertDiaryTraitEvidence(result.traitEvidence());
-            }
-            analysis.setRawResponseJson(result.rawResponseJson());
-            analysis.setSummaryText(result.summary());
-            diaryAnalysisMapper.updateDiaryAnalysisSuccess(analysis);
-            diaryAnalysisMapper.updateStateSuccess(analysis.getDiaryId(), analysis.getAnalysisId());
-        });
-    }
-
-    private void completeFailure(DiaryAnalysisCandidate candidate, DiaryAnalysis analysis,
-            String errorCode, String errorMessage, String rawResponseJson) {
-        transactionTemplate.executeWithoutResult(status -> {
-            DiaryAnalysis failedAnalysis = analysis;
-            if (failedAnalysis == null) {
-                failedAnalysis = new DiaryAnalysis();
-                failedAnalysis.setDiaryId(candidate.getDiaryId());
-                failedAnalysis.setUserId(candidate.getUserId());
-                failedAnalysis.setAnalysisVersion(diaryAnalysisMapper.selectNextAnalysisVersion(candidate.getDiaryId()));
-                failedAnalysis.setContentHash(candidate.getContentHash());
-                failedAnalysis.setDiaryUpdatedAtSnapshot(candidate.getDiaryUpdatedAt());
-                diaryAnalysisMapper.insertDiaryAnalysis(failedAnalysis);
-            }
-            failedAnalysis.setRawResponseJson(rawResponseJson);
-            failedAnalysis.setErrorCode(errorCode);
-            failedAnalysis.setErrorMessage(truncate(errorMessage, 1000));
-            diaryAnalysisMapper.updateDiaryAnalysisFailed(failedAnalysis);
-            diaryAnalysisMapper.updateStateFailed(candidate.getDiaryId(), errorCode, truncate(errorMessage, 1000));
-        });
     }
 
     private AnalysisReferenceData loadReferenceData() {
@@ -211,17 +144,10 @@ public class DiaryAnalysisService {
     private String toJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             throw new DiaryAnalysisException(DiaryAnalysisErrorCode.INTERNAL_ERROR,
                     "Failed to render diary analysis prompt variables", e);
         }
-    }
-
-    private String truncate(String value, int maxLength) {
-        if (value == null || value.length() <= maxLength) {
-            return value;
-        }
-        return value.substring(0, maxLength);
     }
 
     private enum ProcessResult {

@@ -1,4 +1,4 @@
-package heyso.HeysoDiaryBackEnd.diaryAnalysis.model;
+package heyso.HeysoDiaryBackEnd.diaryAnalysis.type;
 
 public final class DiaryAnalysisErrorCode {
     public static final String CONTENT_CHANGED = "CONTENT_CHANGED";

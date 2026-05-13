@@ -1,4 +1,4 @@
-package heyso.HeysoDiaryBackEnd.diaryAnalysis.service;
+package heyso.HeysoDiaryBackEnd.diaryAnalysis.type;
 
 import lombok.Getter;
 

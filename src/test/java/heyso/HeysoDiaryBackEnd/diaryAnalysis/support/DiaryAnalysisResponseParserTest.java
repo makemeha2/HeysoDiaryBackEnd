@@ -1,4 +1,4 @@
-package heyso.HeysoDiaryBackEnd.diaryAnalysis.service;
+package heyso.HeysoDiaryBackEnd.diaryAnalysis.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -13,8 +13,9 @@ import org.junit.jupiter.api.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisCandidate;
-import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisErrorCode;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisResult;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisErrorCode;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisException;
 
 class DiaryAnalysisResponseParserTest {
     private final DiaryAnalysisResponseParser parser = new DiaryAnalysisResponseParser(new ObjectMapper());

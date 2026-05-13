@@ -1,4 +1,4 @@
-package heyso.HeysoDiaryBackEnd.diaryAnalysis.service;
+package heyso.HeysoDiaryBackEnd.diaryAnalysis.support;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -15,10 +15,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisAiResponse;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisCandidate;
-import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisErrorCode;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisResult;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryEvent;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryTraitEvidence;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisErrorCode;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisException;
 import lombok.RequiredArgsConstructor;
 
 @Component

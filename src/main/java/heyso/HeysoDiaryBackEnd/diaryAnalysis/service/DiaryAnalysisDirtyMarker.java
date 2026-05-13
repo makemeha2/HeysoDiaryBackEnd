@@ -8,16 +8,14 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class DiaryAnalysisDirtyMarker {
     private final DiaryAnalysisMapper diaryAnalysisMapper;
-
-    public DiaryAnalysisDirtyMarker(DiaryAnalysisMapper diaryAnalysisMapper) {
-        this.diaryAnalysisMapper = diaryAnalysisMapper;
-    }
 
     @Transactional
     public void markDirty(Long diaryId, Long userId, String title, String contentMd,
