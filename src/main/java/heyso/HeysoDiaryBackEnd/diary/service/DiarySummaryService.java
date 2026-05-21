@@ -53,7 +53,7 @@ public class DiarySummaryService {
     public void rebuildSummary(Long userId) {
         long totalDiaryCount = diarySummaryMapper.countActiveDiaries(userId);
         LocalDate lastDiaryDate = diarySummaryMapper.selectLastDiaryDate(userId);
-        int currentStreakDays = calculateCurrentStreakDays(userId);
+        int currentStreakDays = calculateLongestStreakDays(userId);
 
         diarySummaryMapper.upsertSummaryCache(userId, totalDiaryCount, currentStreakDays, lastDiaryDate);
         diarySummaryMapper.deleteTagSummaryCache(userId);
@@ -74,31 +74,29 @@ public class DiarySummaryService {
         return diarySummaryMapper.selectDirtyUserIds();
     }
 
-    private int calculateCurrentStreakDays(Long userId) {
+    private int calculateLongestStreakDays(Long userId) {
         LocalDate today = LocalDate.now(SEOUL_ZONE);
         List<LocalDate> dates = diarySummaryMapper.selectDistinctDiaryDatesDesc(userId, today);
         if (dates == null || dates.isEmpty()) {
             return 0;
         }
 
-        LocalDate expected;
-        if (dates.get(0).equals(today)) {
-            expected = today;
-        } else if (dates.get(0).equals(today.minusDays(1))) {
-            expected = today.minusDays(1);
-        } else {
-            return 0;
-        }
-
-        int streak = 0;
+        int maxStreak = 1;
+        int streak = 1;
+        LocalDate previousDate = dates.get(0);
         for (LocalDate diaryDate : dates) {
-            if (!diaryDate.equals(expected)) {
-                break;
+            if (diaryDate.equals(previousDate)) {
+                continue;
             }
-            streak++;
-            expected = expected.minusDays(1);
+            if (diaryDate.equals(previousDate.minusDays(1))) {
+                streak++;
+                maxStreak = Math.max(maxStreak, streak);
+            } else {
+                streak = 1;
+            }
+            previousDate = diaryDate;
         }
-        return streak;
+        return maxStreak;
     }
 
     private List<DiaryTagSummaryCache> buildTagCacheItems(Long userId) {

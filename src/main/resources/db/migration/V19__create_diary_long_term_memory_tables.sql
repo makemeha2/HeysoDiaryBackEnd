@@ -1,0 +1,192 @@
+SET NAMES utf8mb4;
+SET time_zone = '+09:00';
+
+CREATE TABLE tb_diary_analysis_state (
+    diary_id             BIGINT UNSIGNED NOT NULL COMMENT '일기 PK',
+    user_id              BIGINT UNSIGNED NOT NULL COMMENT '사용자 PK',
+    dirty                TINYINT(1) NOT NULL DEFAULT 1 COMMENT '재분석 필요 여부',
+    analysis_status      VARCHAR(20) NOT NULL DEFAULT 'DIRTY' COMMENT '분석 상태: DIRTY, ANALYZING, SUCCESS, FAILED, STALE',
+    content_hash         CHAR(64) NOT NULL COMMENT '분석 대상 일기 내용 해시',
+    content_updated_at   DATETIME NOT NULL COMMENT '분석 대상 내용 최종 변경 일시',
+    last_marked_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'dirty 처리 일시',
+    last_analyzed_at     DATETIME NULL COMMENT '마지막 분석 성공 일시',
+    active_analysis_id   BIGINT UNSIGNED NULL COMMENT '현재 유효한 분석 ID(tb_diary_analysis.analysis_id, 논리 참조)',
+    last_error_code      VARCHAR(50) NULL COMMENT '마지막 실패 코드',
+    last_error_message   VARCHAR(1000) NULL COMMENT '마지막 실패 메시지',
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
+
+    PRIMARY KEY (diary_id),
+    KEY idx_diary_analysis_state_dirty (dirty, analysis_status, content_updated_at),
+    KEY idx_diary_analysis_state_user_dirty (user_id, dirty, content_updated_at),
+    KEY idx_diary_analysis_state_active_analysis (active_analysis_id),
+    CONSTRAINT chk_diary_analysis_state_dirty CHECK (dirty IN (0, 1)),
+    CONSTRAINT chk_diary_analysis_state_status CHECK (analysis_status IN ('DIRTY', 'ANALYZING', 'SUCCESS', 'FAILED', 'STALE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='일기 장기 메모리 분석 상태';
+
+CREATE TABLE tb_diary_analysis (
+    analysis_id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '일기 분석 PK',
+    diary_id             BIGINT UNSIGNED NOT NULL COMMENT '일기 PK',
+    user_id              BIGINT UNSIGNED NOT NULL COMMENT '사용자 PK',
+    analysis_version     INT UNSIGNED NOT NULL COMMENT '일기별 분석 버전',
+    status               VARCHAR(20) NOT NULL DEFAULT 'ANALYZING' COMMENT '분석 상태: ANALYZING, SUCCESS, FAILED',
+    is_active            TINYINT(1) NOT NULL DEFAULT 0 COMMENT '현재 유효 분석 여부',
+    content_hash         CHAR(64) NOT NULL COMMENT '분석한 일기 내용 해시',
+    diary_updated_at_snapshot DATETIME NOT NULL COMMENT '분석 대상 일기 수정 시각 스냅샷',
+    binding_id           BIGINT NULL COMMENT '실행 시 사용한 AI prompt binding ID',
+    system_template_id   BIGINT NULL COMMENT '실행 시 사용한 system template ID',
+    user_template_id     BIGINT NULL COMMENT '실행 시 사용한 user template ID',
+    runtime_profile_id   BIGINT NULL COMMENT '실행 시 사용한 runtime profile ID',
+    provider             VARCHAR(50) NULL COMMENT 'AI provider',
+    model                VARCHAR(200) NULL COMMENT 'AI model',
+    raw_response_json    JSON NULL COMMENT 'AI 원본 구조화 응답 JSON',
+    summary_text         TEXT NULL COMMENT '분석 요약',
+    error_code           VARCHAR(50) NULL COMMENT '실패 코드',
+    error_message        VARCHAR(1000) NULL COMMENT '실패 메시지',
+    started_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '분석 시작 일시',
+    finished_at          DATETIME NULL COMMENT '분석 종료 일시',
+    active_diary_id      BIGINT UNSIGNED AS (CASE WHEN is_active = 1 THEN diary_id ELSE NULL END) STORED COMMENT '일기별 active 분석 유일성 보조 컬럼',
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
+
+    PRIMARY KEY (analysis_id),
+    UNIQUE KEY uk_diary_analysis_diary_version (diary_id, analysis_version),
+    UNIQUE KEY uk_diary_analysis_active_diary (active_diary_id),
+    KEY idx_diary_analysis_diary_created (diary_id, created_at),
+    KEY idx_diary_analysis_user_created (user_id, created_at),
+    KEY idx_diary_analysis_status (status),
+    CONSTRAINT chk_diary_analysis_status CHECK (status IN ('ANALYZING', 'SUCCESS', 'FAILED')),
+    CONSTRAINT chk_diary_analysis_active CHECK (is_active IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='일기 장기 메모리 분석 이력';
+
+CREATE TABLE tb_diary_event (
+    event_id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '일기 사건 PK',
+    analysis_id          BIGINT UNSIGNED NOT NULL COMMENT '일기 분석 ID',
+    diary_id             BIGINT UNSIGNED NOT NULL COMMENT '일기 PK',
+    user_id              BIGINT UNSIGNED NOT NULL COMMENT '사용자 PK',
+    event_type           VARCHAR(30) NOT NULL COMMENT '사건 유형',
+    event_title          VARCHAR(200) NULL COMMENT '사건 제목',
+    event_summary        TEXT NULL COMMENT '사건 요약',
+    emotion              VARCHAR(30) NULL COMMENT '대표 감정',
+    emotion_intensity    DECIMAL(5,3) NULL COMMENT '감정 강도 0~1',
+    people_json          JSON NULL COMMENT '관련 사람 JSON',
+    places_json          JSON NULL COMMENT '관련 장소 JSON',
+    activities_json      JSON NULL COMMENT '관련 활동 JSON',
+    relationship_json    JSON NULL COMMENT '관계 맥락 JSON',
+    causality_json       JSON NULL COMMENT '원인/결과 후보 JSON',
+    pattern_candidate_json JSON NULL COMMENT '반복 패턴 후보 JSON',
+    confidence           DECIMAL(5,3) NOT NULL DEFAULT 0.000 COMMENT '추출 신뢰도 0~1',
+    evidence_text        TEXT NULL COMMENT '근거 문장',
+    is_active            TINYINT(1) NOT NULL DEFAULT 1 COMMENT '현재 분석 기준 유효 여부',
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
+
+    PRIMARY KEY (event_id),
+    KEY idx_diary_event_analysis (analysis_id),
+    KEY idx_diary_event_diary (diary_id),
+    KEY idx_diary_event_user_type (user_id, event_type, created_at),
+    KEY idx_diary_event_user_active (user_id, is_active, created_at),
+    CONSTRAINT chk_diary_event_active CHECK (is_active IN (0, 1)),
+    CONSTRAINT chk_diary_event_confidence CHECK (confidence >= 0 AND confidence <= 1),
+    CONSTRAINT chk_diary_event_emotion_intensity CHECK (emotion_intensity IS NULL OR (emotion_intensity >= 0 AND emotion_intensity <= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='일기 분석 사건';
+
+CREATE TABLE tb_mst_trait_definition (
+    trait_id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'trait 정의 PK',
+    trait_key            VARCHAR(80) NOT NULL COMMENT 'trait 키',
+    trait_category       VARCHAR(30) NOT NULL COMMENT '관리 분류: SELF, EMOTION, MOTIVATION, PRODUCTIVITY, RELATIONSHIP, RECOVERY',
+    trait_name           VARCHAR(100) NOT NULL COMMENT 'trait 표시명',
+    trait_description    VARCHAR(1000) NOT NULL COMMENT 'trait 설명',
+    trait_scope          VARCHAR(20) NOT NULL DEFAULT 'CORE' COMMENT 'trait 범위: CORE, EMERGENT',
+    approval_status      VARCHAR(20) NOT NULL DEFAULT 'APPROVED' COMMENT '승인 상태: APPROVED, PENDING, REJECTED',
+    auto_apply_enabled   TINYINT(1) NOT NULL DEFAULT 1 COMMENT '자동 profile 반영 가능 여부',
+    score_direction      VARCHAR(20) NOT NULL DEFAULT 'POSITIVE' COMMENT '점수 방향: POSITIVE, NEGATIVE, NEUTRAL',
+    sort_seq             INT NOT NULL DEFAULT 0 COMMENT '관리/표시 정렬 순서',
+    is_active            TINYINT(1) NOT NULL DEFAULT 1 COMMENT '사용 여부',
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    created_id           BIGINT NOT NULL COMMENT '생성자 user_id',
+    updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
+    updated_id           BIGINT NOT NULL COMMENT '수정자 user_id',
+
+    PRIMARY KEY (trait_id),
+    UNIQUE KEY uk_trait_definition_key (trait_key),
+    KEY idx_trait_definition_category_sort (trait_category, sort_seq),
+    KEY idx_trait_definition_scope_status (trait_scope, approval_status, is_active),
+    CONSTRAINT chk_trait_definition_category CHECK (trait_category IN ('SELF', 'EMOTION', 'MOTIVATION', 'PRODUCTIVITY', 'RELATIONSHIP', 'RECOVERY')),
+    CONSTRAINT chk_trait_definition_scope CHECK (trait_scope IN ('CORE', 'EMERGENT')),
+    CONSTRAINT chk_trait_definition_approval CHECK (approval_status IN ('APPROVED', 'PENDING', 'REJECTED')),
+    CONSTRAINT chk_trait_definition_auto_apply CHECK (auto_apply_enabled IN (0, 1)),
+    CONSTRAINT chk_trait_definition_score_direction CHECK (score_direction IN ('POSITIVE', 'NEGATIVE', 'NEUTRAL')),
+    CONSTRAINT chk_trait_definition_active CHECK (is_active IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='장기 메모리 trait 정의';
+
+CREATE TABLE tb_diary_trait_evidence (
+    evidence_id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'trait 근거 PK',
+    analysis_id          BIGINT UNSIGNED NOT NULL COMMENT '일기 분석 ID',
+    diary_id             BIGINT UNSIGNED NOT NULL COMMENT '일기 PK',
+    user_id              BIGINT UNSIGNED NOT NULL COMMENT '사용자 PK',
+    trait_key            VARCHAR(80) NOT NULL COMMENT 'trait 키(tb_mst_trait_definition.trait_key, 논리 참조)',
+    signal_score         DECIMAL(6,3) NOT NULL COMMENT 'trait signal 점수',
+    confidence           DECIMAL(5,3) NOT NULL DEFAULT 0.000 COMMENT '근거 신뢰도 0~1',
+    evidence_text        TEXT NULL COMMENT '근거 문장',
+    reason_json          JSON NULL COMMENT '판단 근거 JSON',
+    is_active            TINYINT(1) NOT NULL DEFAULT 1 COMMENT '현재 분석 기준 유효 여부',
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
+
+    PRIMARY KEY (evidence_id),
+    KEY idx_trait_evidence_analysis (analysis_id),
+    KEY idx_trait_evidence_diary (diary_id),
+    KEY idx_trait_evidence_user_trait (user_id, trait_key, is_active),
+    KEY idx_trait_evidence_trait_confidence (trait_key, confidence),
+    CONSTRAINT chk_trait_evidence_confidence CHECK (confidence >= 0 AND confidence <= 1),
+    CONSTRAINT chk_trait_evidence_active CHECK (is_active IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='일기 분석 trait signal 근거';
+
+CREATE TABLE tb_user_trait_profile (
+    profile_id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '사용자 trait profile PK',
+    user_id              BIGINT UNSIGNED NOT NULL COMMENT '사용자 PK',
+    trait_key            VARCHAR(80) NOT NULL COMMENT 'trait 키',
+    long_term_score      DECIMAL(7,3) NOT NULL DEFAULT 0.000 COMMENT '장기 점수',
+    recent_score         DECIMAL(7,3) NOT NULL DEFAULT 0.000 COMMENT '최근 점수',
+    confidence           DECIMAL(5,3) NOT NULL DEFAULT 0.000 COMMENT 'profile 신뢰도 0~1',
+    evidence_count       INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '반영된 근거 수',
+    calculated_date      DATE NOT NULL COMMENT '집계 기준일',
+    summary_text         TEXT NULL COMMENT 'trait 요약',
+    is_active            TINYINT(1) NOT NULL DEFAULT 1 COMMENT '사용 여부',
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
+
+    PRIMARY KEY (profile_id),
+    UNIQUE KEY uk_user_trait_profile_user_trait (user_id, trait_key),
+    KEY idx_user_trait_profile_user_active (user_id, is_active),
+    KEY idx_user_trait_profile_trait (trait_key),
+    CONSTRAINT chk_user_trait_profile_confidence CHECK (confidence >= 0 AND confidence <= 1),
+    CONSTRAINT chk_user_trait_profile_active CHECK (is_active IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 장기 trait profile';
+
+CREATE TABLE tb_user_memory_snapshot (
+    snapshot_id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '사용자 장기 메모리 snapshot PK',
+    user_id              BIGINT UNSIGNED NOT NULL COMMENT '사용자 PK',
+    snapshot_version     INT UNSIGNED NOT NULL COMMENT '사용자별 snapshot 버전',
+    is_active            TINYINT(1) NOT NULL DEFAULT 0 COMMENT '현재 유효 snapshot 여부',
+    summary_text         MEDIUMTEXT NOT NULL COMMENT '장기 메모리 요약',
+    recurring_themes_json JSON NULL COMMENT '반복 주제 JSON',
+    important_people_json JSON NULL COMMENT '중요한 사람 JSON',
+    stress_factors_json  JSON NULL COMMENT '스트레스 요인 JSON',
+    recovery_factors_json JSON NULL COMMENT '회복 요인 JSON',
+    trait_summary_json   JSON NULL COMMENT 'trait 요약 JSON',
+    source_from_date     DATE NULL COMMENT '요약 입력 시작일',
+    source_to_date       DATE NULL COMMENT '요약 입력 종료일',
+    source_json          JSON NULL COMMENT '입력 원천 메타 JSON',
+    generated_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    active_user_id       BIGINT UNSIGNED AS (CASE WHEN is_active = 1 THEN user_id ELSE NULL END) STORED COMMENT '사용자별 active snapshot 유일성 보조 컬럼',
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
+
+    PRIMARY KEY (snapshot_id),
+    UNIQUE KEY uk_user_memory_snapshot_user_version (user_id, snapshot_version),
+    UNIQUE KEY uk_user_memory_snapshot_active_user (active_user_id),
+    KEY idx_user_memory_snapshot_user_generated (user_id, generated_at),
+    CONSTRAINT chk_user_memory_snapshot_active CHECK (is_active IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 장기 메모리 snapshot';

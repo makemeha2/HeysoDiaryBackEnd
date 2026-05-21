@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.diaryAnalysis.mapper.DiaryAnalysisMapper">
+
+    <resultMap id="DiaryAnalysisCandidateResultMap"
+               type="heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysisCandidate">
+        <id column="diary_id" property="diaryId"/>
+        <result column="user_id" property="userId"/>
+        <result column="title" property="title"/>
+        <result column="content_md" property="contentMd"/>
+        <result column="diary_date" jdbcType="DATE" property="diaryDate"/>
+        <result column="mood_id" property="moodId"/>
+        <result column="diary_updated_at" jdbcType="TIMESTAMP" property="diaryUpdatedAt"/>
+        <result column="content_hash" property="contentHash"/>
+        <result column="content_updated_at" jdbcType="TIMESTAMP" property="contentUpdatedAt"/>
+    </resultMap>
+
+    <insert id="markDiaryAnalysisDirty">
+        INSERT INTO tb_diary_analysis_state (
+            diary_id,
+            user_id,
+            dirty,
+            analysis_status,
+            content_hash,
+            content_updated_at,
+            last_marked_at,
+            last_error_code,
+            last_error_message,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{diaryId},
+            #{userId},
+            1,
+            'DIRTY',
+            #{contentHash},
+            NOW(),
+            NOW(),
+            NULL,
+            NULL,
+            NOW(),
+            NOW()
+        )
+        ON DUPLICATE KEY UPDATE
+            user_id = VALUES(user_id),
+            dirty = 1,
+            analysis_status = 'DIRTY',
+            content_hash = VALUES(content_hash),
+            content_updated_at = NOW(),
+            last_marked_at = NOW(),
+            last_error_code = NULL,
+            last_error_message = NULL,
+            updated_at = NOW()
+    </insert>
+
+    <update id="markDiaryAnalysisStale">
+        UPDATE tb_diary_analysis_state
+        SET
+            dirty = 0,
+            analysis_status = 'STALE',
+            last_marked_at = NOW(),
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+          AND user_id = #{userId}
+    </update>
+
+    <select id="selectPendingAnalysisCandidates" resultMap="DiaryAnalysisCandidateResultMap">
+        SELECT
+            s.diary_id,
+            s.user_id,
+            d.title,
+            d.content_md,
+            d.diary_date,
+            d.mood_id,
+            d.updated_at AS diary_updated_at,
+            s.content_hash,
+            s.content_updated_at
+        FROM tb_diary_analysis_state s
+        INNER JOIN tb_diary d
+            ON d.diary_id = s.diary_id
+           AND d.user_id = s.user_id
+           AND d.is_deleted = 0
+        WHERE s.dirty = 1
+          AND s.analysis_status IN ('DIRTY', 'FAILED')
+          AND s.content_updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+        ORDER BY s.content_updated_at ASC, s.diary_id ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="claimDiaryAnalysis">
+        UPDATE tb_diary_analysis_state
+        SET
+            dirty = 0,
+            analysis_status = 'ANALYZING',
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+          AND dirty = 1
+          AND analysis_status IN ('DIRTY', 'FAILED')
+          AND content_hash = #{contentHash}
+          AND content_updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+    </update>
+
+    <update id="restoreDirtyAfterContentChanged">
+        UPDATE tb_diary_analysis_state
+        SET
+            dirty = 1,
+            analysis_status = 'DIRTY',
+            content_hash = #{contentHash},
+            content_updated_at = NOW(),
+            last_marked_at = NOW(),
+            last_error_code = NULL,
+            last_error_message = NULL,
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+          AND analysis_status = 'ANALYZING'
+    </update>
+
+    <select id="selectNextAnalysisVersion" resultType="int">
+        SELECT COALESCE(MAX(analysis_version), 0) + 1
+        FROM tb_diary_analysis
+        WHERE diary_id = #{diaryId}
+    </select>
+
+    <insert id="insertDiaryAnalysis"
+            parameterType="heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysis"
+            useGeneratedKeys="true"
+            keyProperty="analysisId">
+        INSERT INTO tb_diary_analysis (
+            diary_id,
+            user_id,
+            analysis_version,
+            status,
+            is_active,
+            content_hash,
+            diary_updated_at_snapshot,
+            binding_id,
+            system_template_id,
+            user_template_id,
+            runtime_profile_id,
+            started_at,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{diaryId},
+            #{userId},
+            #{analysisVersion},
+            'ANALYZING',
+            0,
+            #{contentHash},
+            #{diaryUpdatedAtSnapshot},
+            #{bindingId},
+            #{systemTemplateId},
+            #{userTemplateId},
+            #{runtimeProfileId},
+            NOW(),
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <update id="updateDiaryAnalysisSuccess"
+            parameterType="heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysis">
+        UPDATE tb_diary_analysis
+        SET
+            status = 'SUCCESS',
+            is_active = 1,
+            raw_response_json = #{rawResponseJson, jdbcType=LONGVARCHAR},
+            summary_text = #{summaryText},
+            error_code = NULL,
+            error_message = NULL,
+            finished_at = NOW(),
+            updated_at = NOW()
+        WHERE analysis_id = #{analysisId}
+    </update>
+
+    <update id="updateDiaryAnalysisFailed"
+            parameterType="heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryAnalysis">
+        UPDATE tb_diary_analysis
+        SET
+            status = 'FAILED',
+            is_active = 0,
+            raw_response_json = #{rawResponseJson, jdbcType=LONGVARCHAR},
+            error_code = #{errorCode},
+            error_message = #{errorMessage},
+            finished_at = NOW(),
+            updated_at = NOW()
+        WHERE analysis_id = #{analysisId}
+    </update>
+
+    <update id="deactivateActiveAnalysis">
+        UPDATE tb_diary_analysis
+        SET
+            is_active = 0,
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+          AND is_active = 1
+          AND analysis_id != #{analysisId}
+    </update>
+
+    <update id="deactivateActiveEvents">
+        UPDATE tb_diary_event
+        SET
+            is_active = 0,
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+          AND is_active = 1
+    </update>
+
+    <update id="deactivateActiveTraitEvidence">
+        UPDATE tb_diary_trait_evidence
+        SET
+            is_active = 0,
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+          AND is_active = 1
+    </update>
+
+    <insert id="insertDiaryEvents">
+        INSERT INTO tb_diary_event (
+            analysis_id,
+            diary_id,
+            user_id,
+            event_type,
+            event_title,
+            event_summary,
+            emotion,
+            emotion_intensity,
+            people_json,
+            places_json,
+            activities_json,
+            relationship_json,
+            causality_json,
+            pattern_candidate_json,
+            confidence,
+            evidence_text,
+            is_active,
+            created_at,
+            updated_at
+        )
+        VALUES
+        <foreach collection="events" item="event" separator=",">
+            (
+                #{event.analysisId},
+                #{event.diaryId},
+                #{event.userId},
+                #{event.eventType},
+                #{event.eventTitle},
+                #{event.eventSummary},
+                #{event.emotion},
+                #{event.emotionIntensity},
+                #{event.peopleJson, jdbcType=LONGVARCHAR},
+                #{event.placesJson, jdbcType=LONGVARCHAR},
+                #{event.activitiesJson, jdbcType=LONGVARCHAR},
+                #{event.relationshipJson, jdbcType=LONGVARCHAR},
+                #{event.causalityJson, jdbcType=LONGVARCHAR},
+                #{event.patternCandidateJson, jdbcType=LONGVARCHAR},
+                #{event.confidence},
+                #{event.evidenceText},
+                1,
+                NOW(),
+                NOW()
+            )
+        </foreach>
+    </insert>
+
+    <insert id="insertDiaryTraitEvidence">
+        INSERT INTO tb_diary_trait_evidence (
+            analysis_id,
+            diary_id,
+            user_id,
+            trait_key,
+            signal_score,
+            confidence,
+            evidence_text,
+            reason_json,
+            is_active,
+            created_at,
+            updated_at
+        )
+        VALUES
+        <foreach collection="evidenceList" item="evidence" separator=",">
+            (
+                #{evidence.analysisId},
+                #{evidence.diaryId},
+                #{evidence.userId},
+                #{evidence.traitKey},
+                #{evidence.signalScore},
+                #{evidence.confidence},
+                #{evidence.evidenceText},
+                #{evidence.reasonJson, jdbcType=LONGVARCHAR},
+                1,
+                NOW(),
+                NOW()
+            )
+        </foreach>
+    </insert>
+
+    <update id="updateStateSuccess">
+        UPDATE tb_diary_analysis_state
+        SET
+            dirty = 0,
+            analysis_status = 'SUCCESS',
+            last_analyzed_at = NOW(),
+            active_analysis_id = #{analysisId},
+            last_error_code = NULL,
+            last_error_message = NULL,
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+    </update>
+
+    <update id="updateStateFailed">
+        UPDATE tb_diary_analysis_state
+        SET
+            dirty = 1,
+            analysis_status = 'FAILED',
+            last_error_code = #{errorCode},
+            last_error_message = #{errorMessage},
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+    </update>
+
+    <select id="selectActiveCoreTraitDefinitions"
+            resultType="heyso.HeysoDiaryBackEnd.diaryAnalysis.model.TraitDefinition">
+        SELECT
+            trait_key,
+            trait_category,
+            trait_name,
+            trait_description,
+            score_direction,
+            sort_seq
+        FROM tb_mst_trait_definition
+        WHERE is_active = 1
+          AND trait_scope = 'CORE'
+          AND approval_status = 'APPROVED'
+          AND auto_apply_enabled = 1
+        ORDER BY trait_category, sort_seq, trait_key
+    </select>
+
+    <select id="selectActiveCommonCodeIds" resultType="string">
+        SELECT code_id
+        FROM tb_common_code
+        WHERE group_id = #{groupId}
+          AND is_active = 1
+        ORDER BY sort_seq, code_id
+    </select>
+</mapper>

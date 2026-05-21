@@ -13,6 +13,7 @@ import heyso.HeysoDiaryBackEnd.auth.util.SecurityUtils;
 import heyso.HeysoDiaryBackEnd.diary.model.Diary;
 import heyso.HeysoDiaryBackEnd.diary.model.DiaryMonthlyCount;
 import heyso.HeysoDiaryBackEnd.diary.model.DiarySummary;
+import heyso.HeysoDiaryBackEnd.diaryAnalysis.service.DiaryAnalysisDirtyMarker;
 import heyso.HeysoDiaryBackEnd.user.model.User;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -39,10 +40,13 @@ public class DiaryService {
 
     private final DiaryMapper diaryMapper;
     private final DiarySummaryService diarySummaryService;
+    private final DiaryAnalysisDirtyMarker diaryAnalysisDirtyMarker;
 
-    public DiaryService(DiaryMapper diaryMapper, DiarySummaryService diarySummaryService) {
+    public DiaryService(DiaryMapper diaryMapper, DiarySummaryService diarySummaryService,
+            DiaryAnalysisDirtyMarker diaryAnalysisDirtyMarker) {
         this.diaryMapper = diaryMapper;
         this.diarySummaryService = diarySummaryService;
+        this.diaryAnalysisDirtyMarker = diaryAnalysisDirtyMarker;
     }
 
     public DiaryListResponse getDiaryList(DiaryListRequest request) {
@@ -113,7 +117,16 @@ public class DiaryService {
 
         diaryMapper.insertDiary(diary);
 
-        upsertDiaryTags(diary.getDiaryId(), request.getTags());
+        List<String> sanitizedTags = upsertDiaryTags(diary.getDiaryId(), request.getTags());
+        
+        diaryAnalysisDirtyMarker.markDirty(
+                diary.getDiaryId(),
+                user.getUserId(),
+                diary.getTitle(),
+                diary.getContentMd(),
+                diary.getDiaryDate(),
+                diary.getMoodId(),
+                sanitizedTags);
         diarySummaryService.markSummaryDirty(user.getUserId());
 
         return DiaryCreateResponse.of(diary.getDiaryId());
@@ -135,15 +148,24 @@ public class DiaryService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot edit this diary");
         }
 
+        String moodId = normalizeMoodId(request.getMoodId());
         diaryMapper.updateDiary(
                 diaryId,
                 request.getTitle(),
                 request.getContentMd(),
                 request.getDiaryDate(),
-                normalizeMoodId(request.getMoodId()));
+                moodId);
 
         diaryMapper.deleteDiaryTags(diaryId);
-        upsertDiaryTags(diaryId, request.getTags());
+        List<String> sanitizedTags = upsertDiaryTags(diaryId, request.getTags());
+        diaryAnalysisDirtyMarker.markDirty(
+                diaryId,
+                user.getUserId(),
+                request.getTitle(),
+                request.getContentMd(),
+                request.getDiaryDate(),
+                moodId,
+                sanitizedTags);
         diarySummaryService.markSummaryDirty(user.getUserId());
     }
 
@@ -161,6 +183,7 @@ public class DiaryService {
 
         // diaryMapper.deleteDiaryTags(diaryId);
         diaryMapper.deleteDiary(diaryId);
+        diaryAnalysisDirtyMarker.markStale(diaryId, user.getUserId());
         diarySummaryService.markSummaryDirty(user.getUserId());
     }
 
@@ -205,7 +228,7 @@ public class DiaryService {
         return cleaned;
     }
 
-    private void upsertDiaryTags(Long diaryId, List<String> rawTags) {
+    private List<String> upsertDiaryTags(Long diaryId, List<String> rawTags) {
         List<String> sanitizedTags = sanitizeTags(rawTags);
         for (String tagName : sanitizedTags) {
             Long tagId = diaryMapper.selectTagIdByName(tagName);
@@ -217,6 +240,7 @@ public class DiaryService {
                 diaryMapper.insertDiaryTag(diaryId, tagId);
             }
         }
+        return sanitizedTags;
     }
 
     private List<String> toTagNameList(List<DiaryTag> tags) {
