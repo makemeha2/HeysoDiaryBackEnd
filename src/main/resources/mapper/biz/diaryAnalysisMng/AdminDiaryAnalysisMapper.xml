@@ -6,8 +6,8 @@
 
     <sql id="DiaryAnalysisFilter">
         WHERE d.is_deleted = 0
-        <if test="request.userId != null">
-          AND d.user_id = #{request.userId}
+        <if test="request.email != null and request.email != ''">
+          AND u.email LIKE CONCAT('%', #{request.email}, '%')
         </if>
         <if test="request.diaryId != null">
           AND d.diary_id = #{request.diaryId}
@@ -24,6 +24,7 @@
         SELECT
             d.diary_id,
             d.user_id,
+            u.email AS author_email,
             u.nickname AS author_nickname,
             d.title,
             d.diary_date,
@@ -87,6 +88,8 @@
     <select id="countDiaryAnalysisPage" resultType="long">
         SELECT COUNT(*)
         FROM tb_diary d
+        INNER JOIN tb_user u
+            ON u.user_id = d.user_id
         LEFT JOIN tb_diary_analysis_state s
             ON s.diary_id = d.diary_id
         <include refid="DiaryAnalysisFilter"/>

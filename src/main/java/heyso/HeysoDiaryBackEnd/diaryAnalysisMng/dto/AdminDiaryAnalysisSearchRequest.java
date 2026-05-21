@@ -15,7 +15,7 @@ public class AdminDiaryAnalysisSearchRequest {
     @Max(100)
     private int size = 50;
 
-    private Long userId;
+    private String email;
     private Long diaryId;
     private String analysisStatus;
     private Boolean dirty;

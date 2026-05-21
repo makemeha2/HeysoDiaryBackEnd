@@ -11,6 +11,7 @@ import lombok.Setter;
 public class AdminDiaryAnalysisDiaryRow {
     private Long diaryId;
     private Long userId;
+    private String authorEmail;
     private String authorNickname;
     private String title;
     private LocalDate diaryDate;
