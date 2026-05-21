@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.diaryAnalysisMng.mapper.AdminDiaryAnalysisMapper">
+
+    <sql id="DiaryAnalysisFilter">
+        WHERE d.is_deleted = 0
+        <if test="request.email != null and request.email != ''">
+          AND u.email LIKE CONCAT('%', #{request.email}, '%')
+        </if>
+        <if test="request.diaryId != null">
+          AND d.diary_id = #{request.diaryId}
+        </if>
+        <if test="request.analysisStatus != null and request.analysisStatus != ''">
+          AND s.analysis_status = #{request.analysisStatus}
+        </if>
+        <if test="request.dirty != null">
+          AND s.dirty = #{request.dirty}
+        </if>
+    </sql>
+
+    <sql id="DiaryAnalysisRowSelect">
+        SELECT
+            d.diary_id,
+            d.user_id,
+            u.email AS author_email,
+            u.nickname AS author_nickname,
+            d.title,
+            d.diary_date,
+            d.mood_id,
+            d.created_at,
+            d.updated_at,
+            s.dirty,
+            s.analysis_status,
+            s.content_hash,
+            s.content_updated_at,
+            s.last_marked_at,
+            s.last_analyzed_at,
+            s.active_analysis_id,
+            s.last_error_code,
+            s.last_error_message,
+            s.updated_at AS state_updated_at,
+            la.analysis_id AS latest_analysis_id,
+            la.analysis_version AS latest_analysis_version,
+            la.status AS latest_analysis_status,
+            la.is_active AS latest_analysis_active,
+            la.summary_text AS latest_summary_text,
+            la.error_code AS latest_error_code,
+            la.error_message AS latest_error_message,
+            la.started_at AS latest_started_at,
+            la.finished_at AS latest_finished_at,
+            (
+                SELECT COUNT(*)
+                FROM tb_diary_event de
+                WHERE de.diary_id = d.diary_id
+                  AND de.is_active = 1
+            ) AS event_count,
+            (
+                SELECT COUNT(*)
+                FROM tb_diary_trait_evidence dte
+                WHERE dte.diary_id = d.diary_id
+                  AND dte.is_active = 1
+            ) AS evidence_count
+        FROM tb_diary d
+        INNER JOIN tb_user u
+            ON u.user_id = d.user_id
+        LEFT JOIN tb_diary_analysis_state s
+            ON s.diary_id = d.diary_id
+        LEFT JOIN tb_diary_analysis la
+            ON la.analysis_id = (
+                SELECT x.analysis_id
+                FROM tb_diary_analysis x
+                WHERE x.diary_id = d.diary_id
+                ORDER BY x.analysis_version DESC, x.analysis_id DESC
+                LIMIT 1
+            )
+    </sql>
+
+    <select id="selectDiaryAnalysisPage"
+            resultType="heyso.HeysoDiaryBackEnd.diaryAnalysisMng.dto.AdminDiaryAnalysisDiaryRow">
+        <include refid="DiaryAnalysisRowSelect"/>
+        <include refid="DiaryAnalysisFilter"/>
+        ORDER BY d.updated_at DESC, d.diary_id DESC
+        LIMIT #{request.offset}, #{request.size}
+    </select>
+
+    <select id="countDiaryAnalysisPage" resultType="long">
+        SELECT COUNT(*)
+        FROM tb_diary d
+        INNER JOIN tb_user u
+            ON u.user_id = d.user_id
+        LEFT JOIN tb_diary_analysis_state s
+            ON s.diary_id = d.diary_id
+        <include refid="DiaryAnalysisFilter"/>
+    </select>
+
+    <select id="selectDiaryAnalysisDetail"
+            resultType="heyso.HeysoDiaryBackEnd.diaryAnalysisMng.dto.AdminDiaryAnalysisDiaryRow">
+        <include refid="DiaryAnalysisRowSelect"/>
+        WHERE d.is_deleted = 0
+          AND d.diary_id = #{diaryId}
+    </select>
+
+    <select id="selectActiveEvents"
+            resultType="heyso.HeysoDiaryBackEnd.diaryAnalysisMng.dto.AdminDiaryEventRow">
+        SELECT
+            event_id,
+            analysis_id,
+            diary_id,
+            user_id,
+            event_type,
+            event_title,
+            event_summary,
+            emotion,
+            emotion_intensity,
+            people_json,
+            places_json,
+            activities_json,
+            relationship_json,
+            causality_json,
+            pattern_candidate_json,
+            confidence,
+            evidence_text,
+            created_at,
+            updated_at
+        FROM tb_diary_event
+        WHERE diary_id = #{diaryId}
+          AND is_active = 1
+        ORDER BY confidence DESC, event_id ASC
+    </select>
+
+    <select id="selectActiveTraitEvidence"
+            resultType="heyso.HeysoDiaryBackEnd.diaryAnalysisMng.dto.AdminDiaryTraitEvidenceRow">
+        SELECT
+            evidence_id,
+            analysis_id,
+            diary_id,
+            user_id,
+            trait_key,
+            signal_score,
+            confidence,
+            evidence_text,
+            reason_json,
+            created_at,
+            updated_at
+        FROM tb_diary_trait_evidence
+        WHERE diary_id = #{diaryId}
+          AND is_active = 1
+        ORDER BY confidence DESC, evidence_id ASC
+    </select>
+
+    <select id="selectAnalyses"
+            resultType="heyso.HeysoDiaryBackEnd.diaryAnalysisMng.dto.AdminDiaryAnalysisRow">
+        SELECT
+            analysis_id,
+            diary_id,
+            user_id,
+            analysis_version,
+            status,
+            is_active AS active,
+            content_hash,
+            diary_updated_at_snapshot,
+            binding_id,
+            system_template_id,
+            user_template_id,
+            runtime_profile_id,
+            raw_response_json,
+            summary_text,
+            error_code,
+            error_message,
+            started_at,
+            finished_at,
+            created_at,
+            updated_at
+        FROM tb_diary_analysis
+        WHERE diary_id = #{diaryId}
+        ORDER BY analysis_version DESC, analysis_id DESC
+    </select>
+
+    <update id="markReanalysisEligible">
+        UPDATE tb_diary_analysis_state
+        SET
+            content_updated_at = DATE_SUB(NOW(), INTERVAL 1 HOUR),
+            updated_at = NOW()
+        WHERE diary_id = #{diaryId}
+          AND dirty = 1
+          AND analysis_status = 'DIRTY'
+    </update>
+</mapper>
