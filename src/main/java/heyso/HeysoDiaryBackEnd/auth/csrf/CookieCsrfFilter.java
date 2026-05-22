@@ -11,6 +11,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import heyso.HeysoDiaryBackEnd.auth.cookie.AuthCookieProperties;
 import heyso.HeysoDiaryBackEnd.auth.cookie.AuthCookieService;
+import heyso.HeysoDiaryBackEnd.auth.security.PublicAuthEndpoints;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,13 +49,10 @@ public class CookieCsrfFilter extends OncePerRequestFilter {
         if (SAFE_METHODS.contains(request.getMethod())) {
             return false;
         }
-        String uri = request.getRequestURI();
-        if (uri == null || !uri.startsWith("/api/")) {
+        if (!PublicAuthEndpoints.isApiRequest(request)) {
             return false;
         }
-        if ("/api/auth/oauth/google".equals(uri)
-                || "/api/auth/validate".equals(uri)
-                || "/api/admin/auth/login".equals(uri)) {
+        if (PublicAuthEndpoints.isCsrfExcluded(request)) {
             return false;
         }
         return StringUtils.hasText(authCookieService.extractAccessToken(request));

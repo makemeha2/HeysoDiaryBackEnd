@@ -1,6 +1,7 @@
 package heyso.HeysoDiaryBackEnd.auth.jwt;
 
 import heyso.HeysoDiaryBackEnd.auth.cookie.AuthCookieService;
+import heyso.HeysoDiaryBackEnd.auth.security.PublicAuthEndpoints;
 import heyso.HeysoDiaryBackEnd.auth.service.AuthTokenService;
 import heyso.HeysoDiaryBackEnd.auth.service.AuthenticatedToken;
 import heyso.HeysoDiaryBackEnd.user.model.User;
@@ -30,6 +31,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final AuthTokenService authTokenService;
     private final AuthCookieService authCookieService;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return PublicAuthEndpoints.isJwtFilterExcluded(request);
+    }
 
     @Override
     protected void doFilterInternal(
