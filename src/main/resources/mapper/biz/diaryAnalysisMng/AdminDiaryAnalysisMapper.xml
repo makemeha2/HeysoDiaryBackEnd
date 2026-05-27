@@ -105,49 +105,57 @@
     <select id="selectActiveEvents"
             resultType="heyso.HeysoDiaryBackEnd.diaryAnalysisMng.dto.AdminDiaryEventRow">
         SELECT
-            event_id,
-            analysis_id,
-            diary_id,
-            user_id,
-            event_type,
-            event_title,
-            event_summary,
-            emotion,
-            emotion_intensity,
-            people_json,
-            places_json,
-            activities_json,
-            relationship_json,
-            causality_json,
-            pattern_candidate_json,
-            confidence,
-            evidence_text,
-            created_at,
-            updated_at
-        FROM tb_diary_event
-        WHERE diary_id = #{diaryId}
-          AND is_active = 1
-        ORDER BY confidence DESC, event_id ASC
+            e.event_id,
+            e.analysis_id,
+            e.diary_id,
+            e.user_id,
+            e.event_type,
+            e.event_title,
+            e.event_summary,
+            e.emotion,
+            ec.code_name AS emotion_name,
+            e.emotion_intensity,
+            e.people_json,
+            e.places_json,
+            e.activities_json,
+            e.relationship_json,
+            e.causality_json,
+            e.pattern_candidate_json,
+            e.confidence,
+            e.evidence_text,
+            e.created_at,
+            e.updated_at
+        FROM tb_diary_event e
+        LEFT JOIN tb_common_code ec
+            ON ec.group_id = 'DIARY_EMOTION'
+           AND ec.code_id = e.emotion
+           AND ec.is_active = 1
+        WHERE e.diary_id = #{diaryId}
+          AND e.is_active = 1
+        ORDER BY e.confidence DESC, e.event_id ASC
     </select>
 
     <select id="selectActiveTraitEvidence"
             resultType="heyso.HeysoDiaryBackEnd.diaryAnalysisMng.dto.AdminDiaryTraitEvidenceRow">
         SELECT
-            evidence_id,
-            analysis_id,
-            diary_id,
-            user_id,
-            trait_key,
-            signal_score,
-            confidence,
-            evidence_text,
-            reason_json,
-            created_at,
-            updated_at
-        FROM tb_diary_trait_evidence
-        WHERE diary_id = #{diaryId}
-          AND is_active = 1
-        ORDER BY confidence DESC, evidence_id ASC
+            e.evidence_id,
+            e.analysis_id,
+            e.diary_id,
+            e.user_id,
+            e.trait_key,
+            t.trait_name,
+            e.signal_score,
+            e.confidence,
+            e.evidence_text,
+            e.reason_json,
+            e.created_at,
+            e.updated_at
+        FROM tb_diary_trait_evidence e
+        LEFT JOIN tb_mst_trait_definition t
+            ON t.trait_key = e.trait_key
+        WHERE e.diary_id = #{diaryId}
+          AND e.is_active = 1
+        ORDER BY e.confidence DESC, e.evidence_id ASC
     </select>
 
     <select id="selectAnalyses"
