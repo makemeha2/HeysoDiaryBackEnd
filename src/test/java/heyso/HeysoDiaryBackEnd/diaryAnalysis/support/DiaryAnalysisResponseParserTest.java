@@ -25,30 +25,30 @@ class DiaryAnalysisResponseParserTest {
     void parseValidResponse() {
         DiaryAnalysisResult result = parser.parse("""
                 {
-                  "summary": "친구와 대화하며 마음을 정리한 하루",
-                  "events": [
+                  "sum": "친구와 대화하며 마음을 정리한 하루",
+                  "evts": [
                     {
-                      "event_type": "RELATIONSHIP",
-                      "event_title": "친구와 대화",
-                      "event_summary": "친구와 고민을 나누었다.",
-                      "emotion": "CALM",
-                      "emotion_intensity": 0.7,
+                      "evt_type": "RELATIONSHIP",
+                      "evt_title": "친구와 대화",
+                      "evt_sum": "친구와 고민을 나누었다.",
+                      "emo": "CALM",
+                      "emo_int": 0.7,
                       "people": ["친구"],
                       "places": [],
-                      "activities": ["대화"],
-                      "relationship": {"type": "friend"},
-                      "causality": {},
-                      "pattern_candidate": {},
-                      "confidence": 0.8,
-                      "evidence_text": "친구와 이야기를 했다"
+                      "acts": ["대화"],
+                      "rel": {"type": "friend"},
+                      "cause": {},
+                      "pattern": {},
+                      "conf": 0.8,
+                      "edc_txt": "친구와 이야기를 했다"
                     }
                   ],
-                  "trait_evidence": [
+                  "trait_edc": [
                     {
                       "trait_key": "SELF_REFLECTION",
-                      "signal_score": 0.6,
-                      "confidence": 0.75,
-                      "evidence_text": "내 감정을 돌아봤다",
+                      "sig_score": 0.6,
+                      "conf": 0.75,
+                      "edc_txt": "내 감정을 돌아봤다",
                       "reason": {"basis": "reflection"}
                     }
                   ]
@@ -61,7 +61,7 @@ class DiaryAnalysisResponseParserTest {
         assertThat(result.events().get(0).getPeopleJson()).isEqualTo("[\"친구\"]");
         assertThat(result.traitEvidence()).hasSize(1);
         assertThat(result.traitEvidence().get(0).getTraitKey()).isEqualTo("SELF_REFLECTION");
-        assertThat(result.rawResponseJson()).contains("\"summary\"");
+        assertThat(result.rawResponseJson()).contains("\"sum\"");
     }
 
     @Test
@@ -69,14 +69,97 @@ class DiaryAnalysisResponseParserTest {
     void rejectUnknownTraitKey() {
         assertThatThrownBy(() -> parser.parse("""
                 {
-                  "summary": "요약",
-                  "events": [],
-                  "trait_evidence": [
+                  "sum": "요약",
+                  "evts": [],
+                  "trait_edc": [
                     {
                       "trait_key": "UNKNOWN_TRAIT",
-                      "signal_score": 0.2,
-                      "confidence": 0.5,
-                      "evidence_text": "근거",
+                      "sig_score": 0.2,
+                      "conf": 0.5,
+                      "edc_txt": "근거",
+                      "reason": {}
+                    }
+                  ]
+                }
+                """, candidate(), Set.of("RELATIONSHIP"), Set.of("CALM"), Set.of("SELF_REFLECTION")))
+                .isInstanceOf(DiaryAnalysisException.class)
+                .extracting("errorCode")
+                .isEqualTo(DiaryAnalysisErrorCode.SCHEMA_INVALID);
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 evt_type은 스키마 실패로 처리한다")
+    void rejectUnknownEventType() {
+        assertThatThrownBy(() -> parser.parse("""
+                {
+                  "sum": "요약",
+                  "evts": [
+                    {
+                      "evt_type": "UNKNOWN_EVENT",
+                      "evt_title": "사건",
+                      "evt_sum": "요약",
+                      "emo": null,
+                      "emo_int": 0.0,
+                      "conf": 0.5,
+                      "edc_txt": "근거"
+                    }
+                  ],
+                  "trait_edc": []
+                }
+                """, candidate(), Set.of("RELATIONSHIP"), Set.of("CALM"), Set.of("SELF_REFLECTION")))
+                .isInstanceOf(DiaryAnalysisException.class)
+                .extracting("errorCode")
+                .isEqualTo(DiaryAnalysisErrorCode.SCHEMA_INVALID);
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 emo는 스키마 실패로 처리한다")
+    void rejectUnknownEmotion() {
+        assertThatThrownBy(() -> parser.parse("""
+                {
+                  "sum": "요약",
+                  "evts": [
+                    {
+                      "evt_type": "RELATIONSHIP",
+                      "evt_title": "사건",
+                      "evt_sum": "요약",
+                      "emo": "UNKNOWN_EMOTION",
+                      "emo_int": 0.0,
+                      "conf": 0.5,
+                      "edc_txt": "근거"
+                    }
+                  ],
+                  "trait_edc": []
+                }
+                """, candidate(), Set.of("RELATIONSHIP"), Set.of("CALM"), Set.of("SELF_REFLECTION")))
+                .isInstanceOf(DiaryAnalysisException.class)
+                .extracting("errorCode")
+                .isEqualTo(DiaryAnalysisErrorCode.SCHEMA_INVALID);
+    }
+
+    @Test
+    @DisplayName("약어 숫자 필드가 허용 범위를 벗어나면 스키마 실패로 처리한다")
+    void rejectOutOfRangeCompactScores() {
+        assertThatThrownBy(() -> parser.parse("""
+                {
+                  "sum": "요약",
+                  "evts": [
+                    {
+                      "evt_type": "RELATIONSHIP",
+                      "evt_title": "사건",
+                      "evt_sum": "요약",
+                      "emo": "CALM",
+                      "emo_int": 1.2,
+                      "conf": 0.5,
+                      "edc_txt": "근거"
+                    }
+                  ],
+                  "trait_edc": [
+                    {
+                      "trait_key": "SELF_REFLECTION",
+                      "sig_score": 1.2,
+                      "conf": 0.5,
+                      "edc_txt": "근거",
                       "reason": {}
                     }
                   ]

@@ -71,7 +71,13 @@ public class ClaudeClient implements AiClient {
                 .call();
 
         var chatResponse = responseSpec.chatResponse();
-        String content = responseSpec.content();
+        String content = null;
+
+        if (chatResponse != null
+                && chatResponse.getResult() != null
+                && chatResponse.getResult().getOutput() != null) {
+            content = chatResponse.getResult().getOutput().getText();
+        }
 
         if (StringUtils.isBlank(content)) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI content is empty");

@@ -17,6 +17,7 @@ public class AdminDiaryEventRow {
     private String eventTitle;
     private String eventSummary;
     private String emotion;
+    private String emotionName;
     private BigDecimal emotionIntensity;
     private String peopleJson;
     private String placesJson;

@@ -3,6 +3,7 @@ package heyso.HeysoDiaryBackEnd.config;
 import heyso.HeysoDiaryBackEnd.auth.cookie.AuthCookieService;
 import heyso.HeysoDiaryBackEnd.auth.csrf.CookieCsrfFilter;
 import heyso.HeysoDiaryBackEnd.auth.jwt.JwtAuthenticationFilter;
+import heyso.HeysoDiaryBackEnd.auth.security.PublicAuthEndpoints;
 import heyso.HeysoDiaryBackEnd.auth.service.AuthTokenService;
 import heyso.HeysoDiaryBackEnd.security.MonitoringAccessDeniedHandler;
 import heyso.HeysoDiaryBackEnd.security.MonitoringAuthenticationEntryPoint;
@@ -54,12 +55,7 @@ public class SecurityConfig {
                                         auth.requestMatchers("/error").permitAll();
 
                                         // ✅ 인증 없이 허용할 엔드포인트
-                                        auth.requestMatchers(
-                                                        "/api/auth/oauth/google",
-                                                        "/api/auth/validate",
-                                                        "/api/admin/auth/login",
-                                                        "/swagger-ui/**",
-                                                        "/v3/api-docs/**").permitAll();
+                                        auth.requestMatchers(PublicAuthEndpoints.PERMIT_ALL).permitAll();
                                         auth.requestMatchers(
                                                         "/actuator/health",
                                                         "/actuator/health/**",

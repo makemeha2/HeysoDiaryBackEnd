@@ -12,33 +12,40 @@ import lombok.Setter;
 @Getter
 @Setter
 public class DiaryAnalysisAiResponse {
+    @JsonProperty("sum")
     private String summary;
+    @JsonProperty("evts")
     private List<EventItem> events;
 
-    @JsonProperty("trait_evidence")
+    @JsonProperty("trait_edc")
     private List<TraitEvidenceItem> traitEvidence;
 
     @Getter
     @Setter
     public static class EventItem {
-        @JsonProperty("event_type")
+        @JsonProperty("evt_type")
         private String eventType;
-        @JsonProperty("event_title")
+        @JsonProperty("evt_title")
         private String eventTitle;
-        @JsonProperty("event_summary")
+        @JsonProperty("evt_sum")
         private String eventSummary;
+        @JsonProperty("emo")
         private String emotion;
-        @JsonProperty("emotion_intensity")
+        @JsonProperty("emo_int")
         private BigDecimal emotionIntensity;
         private JsonNode people;
         private JsonNode places;
+        @JsonProperty("acts")
         private JsonNode activities;
+        @JsonProperty("rel")
         private JsonNode relationship;
+        @JsonProperty("cause")
         private JsonNode causality;
-        @JsonProperty("pattern_candidate")
+        @JsonProperty("pattern")
         private JsonNode patternCandidate;
+        @JsonProperty("conf")
         private BigDecimal confidence;
-        @JsonProperty("evidence_text")
+        @JsonProperty("edc_txt")
         private String evidenceText;
     }
 
@@ -47,10 +54,11 @@ public class DiaryAnalysisAiResponse {
     public static class TraitEvidenceItem {
         @JsonProperty("trait_key")
         private String traitKey;
-        @JsonProperty("signal_score")
+        @JsonProperty("sig_score")
         private BigDecimal signalScore;
+        @JsonProperty("conf")
         private BigDecimal confidence;
-        @JsonProperty("evidence_text")
+        @JsonProperty("edc_txt")
         private String evidenceText;
         private JsonNode reason;
     }

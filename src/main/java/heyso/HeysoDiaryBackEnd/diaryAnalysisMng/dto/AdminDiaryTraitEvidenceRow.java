@@ -14,6 +14,7 @@ public class AdminDiaryTraitEvidenceRow {
     private Long diaryId;
     private Long userId;
     private String traitKey;
+    private String traitName;
     private BigDecimal signalScore;
     private BigDecimal confidence;
     private String evidenceText;
