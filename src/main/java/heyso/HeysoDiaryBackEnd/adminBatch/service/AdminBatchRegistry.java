@@ -24,8 +24,8 @@ public class AdminBatchRegistry {
         this.definitions = List.of(
                 new AdminBatchDefinition(
                         AdminBatchKeys.DIARY_SUMMARY_REBUILD,
-                        "일기 요약 캐시 재생성",
-                        "dirty 상태의 사용자 일기 요약 캐시를 재집계합니다.",
+                        "일기 집계 및 캐시 재생성",
+                        "dirty 상태의 사용자 일기 집계 캐시를 재집계합니다.",
                         diarySummaryCron,
                         "Asia/Seoul",
                         runners.get("diarySummaryBatchRunner")),

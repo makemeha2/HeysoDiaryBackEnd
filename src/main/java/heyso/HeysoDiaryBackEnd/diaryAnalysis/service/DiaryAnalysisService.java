@@ -1,6 +1,5 @@
 package heyso.HeysoDiaryBackEnd.diaryAnalysis.service;
 
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,9 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 public class DiaryAnalysisService {
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
     private final DiaryAnalysisMapper diaryAnalysisMapper;
     private final DiaryMapper diaryMapper;
     private final DiaryAnalysisDirtyMarker dirtyMarker;
@@ -126,20 +122,34 @@ public class DiaryAnalysisService {
     private Map<String, String> buildVariables(DiaryAnalysisCandidate candidate, List<String> tags,
             AnalysisReferenceData referenceData) {
         Map<String, String> variables = new HashMap<>();
-        variables.put("diary_id", String.valueOf(candidate.getDiaryId()));
-        variables.put("user_id", String.valueOf(candidate.getUserId()));
-        variables.put("diary_date", candidate.getDiaryDate() == null ? "" : DATE_FORMATTER.format(candidate.getDiaryDate()));
         variables.put("title", StringUtils.defaultString(candidate.getTitle()));
         variables.put("content_md", StringUtils.defaultString(candidate.getContentMd()));
         variables.put("mood_id", StringUtils.defaultString(candidate.getMoodId()));
-        variables.put("diary_updated_at", candidate.getDiaryUpdatedAt() == null ? ""
-                : DATE_TIME_FORMATTER.format(candidate.getDiaryUpdatedAt()));
         variables.put("tags_json", toJson(tags == null ? List.of() : tags));
-        variables.put("trait_definitions_json", toJson(referenceData.traits()));
+        variables.put("trait_definitions_json", toJson(toPromptTraitKeys(referenceData.traits())));
         variables.put("event_type_codes_json", toJson(referenceData.eventTypes()));
         variables.put("emotion_codes_json", toJson(referenceData.emotions()));
         return variables;
     }
+
+    private List<String> toPromptTraitKeys(List<TraitDefinition> traits) {
+        return traits.stream()
+                .map(TraitDefinition::getTraitKey)
+                .toList();
+    }
+
+    /*
+     * Performance-test rollback note:
+     * Keep this richer prompt payload disabled while testing the traitKey-only input.
+     */
+    // private List<PromptTraitDefinition> toPromptTraits(List<TraitDefinition> traits) {
+    //     return traits.stream()
+    //             .map(trait -> new PromptTraitDefinition(
+    //                     trait.getTraitKey(),
+    //                     trait.getTraitName(),
+    //                     trait.getTraitDescription()))
+    //             .toList();
+    // }
 
     private String toJson(Object value) {
         try {
@@ -162,4 +172,10 @@ public class DiaryAnalysisService {
             Set<String> eventTypes,
             Set<String> emotions) {
     }
+
+    // private record PromptTraitDefinition(
+    //         String traitKey,
+    //         String traitName,
+    //         String traitDescription) {
+    // }
 }
