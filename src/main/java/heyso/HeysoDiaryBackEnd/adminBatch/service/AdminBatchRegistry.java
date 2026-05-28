@@ -20,6 +20,7 @@ public class AdminBatchRegistry {
     public AdminBatchRegistry(
             @Value("${app.diary.summary.scheduler.cron:0 0 3 * * *}") String diarySummaryCron,
             @Value("${app.diary.analysis.scheduler.cron:0 */10 * * * *}") String diaryAnalysisCron,
+            @Value("${app.user-trait-profile.scheduler.cron:0 0 4 * * *}") String userTraitProfileCron,
             Map<String, AdminBatchRunner> runners) {
         this.definitions = List.of(
                 new AdminBatchDefinition(
@@ -35,7 +36,14 @@ public class AdminBatchRegistry {
                         "마지막 수정 후 1시간 지난 dirty 일기를 AI로 구조화 분석합니다.",
                         diaryAnalysisCron,
                         "Asia/Seoul",
-                        runners.get("diaryAnalysisBatchRunner")));
+                        runners.get("diaryAnalysisBatchRunner")),
+                new AdminBatchDefinition(
+                        AdminBatchKeys.USER_TRAIT_PROFILE,
+                        "사용자 trait profile 집계",
+                        "active trait evidence를 사용자 단위 장기 profile로 집계합니다.",
+                        userTraitProfileCron,
+                        "Asia/Seoul",
+                        runners.get("userTraitProfileBatchRunner")));
         this.definitionMap = definitions.stream()
                 .collect(Collectors.toUnmodifiableMap(AdminBatchDefinition::batchKey, Function.identity()));
     }

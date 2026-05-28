@@ -63,6 +63,10 @@ app:
       scheduler:
         cron: ${DIARY_SUMMARY_SCHEDULER_CRON:0 0 3 * * *}
 
+  user-trait-profile:
+    scheduler:
+      cron: ${USER_TRAIT_PROFILE_SCHEDULER_CRON:0 0 4 * * *}
+
   ai:
     default-provider: OPENAI
     default-chat-model: gpt-4o-mini
