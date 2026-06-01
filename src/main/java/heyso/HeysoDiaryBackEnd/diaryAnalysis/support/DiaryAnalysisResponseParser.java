@@ -20,6 +20,7 @@ import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryEvent;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.model.DiaryTraitEvidence;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisErrorCode;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisException;
+import heyso.HeysoDiaryBackEnd.utils.JsonHashUtil;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -93,12 +94,12 @@ public class DiaryAnalysisResponseParser {
             event.setEventSummary(blankToNull(item.getEventSummary()));
             event.setEmotion(blankToNull(item.getEmotion()));
             event.setEmotionIntensity(item.getEmotionIntensity());
-            event.setPeopleJson(toJson(item.getPeople()));
-            event.setPlacesJson(toJson(item.getPlaces()));
-            event.setActivitiesJson(toJson(item.getActivities()));
-            event.setRelationshipJson(toJson(item.getRelationship()));
-            event.setCausalityJson(toJson(item.getCausality()));
-            event.setPatternCandidateJson(toJson(item.getPatternCandidate()));
+            event.setPeopleJson(renderNestedJson(item.getPeople()));
+            event.setPlacesJson(renderNestedJson(item.getPlaces()));
+            event.setActivitiesJson(renderNestedJson(item.getActivities()));
+            event.setRelationshipJson(renderNestedJson(item.getRelationship()));
+            event.setCausalityJson(renderNestedJson(item.getCausality()));
+            event.setPatternCandidateJson(renderNestedJson(item.getPatternCandidate()));
             event.setConfidence(defaultDecimal(item.getConfidence()));
             event.setEvidenceText(blankToNull(item.getEvidenceText()));
             events.add(event);
@@ -117,7 +118,7 @@ public class DiaryAnalysisResponseParser {
             evidence.setSignalScore(defaultDecimal(item.getSignalScore()));
             evidence.setConfidence(defaultDecimal(item.getConfidence()));
             evidence.setEvidenceText(blankToNull(item.getEvidenceText()));
-            evidence.setReasonJson(toJson(item.getReason()));
+            evidence.setReasonJson(renderNestedJson(item.getReason()));
             evidenceList.add(evidence);
         }
         return evidenceList;
@@ -145,15 +146,8 @@ public class DiaryAnalysisResponseParser {
         }
     }
 
-    private String toJson(JsonNode node) {
-        if (node == null || node.isNull()) {
-            return null;
-        }
-        try {
-            return objectMapper.writeValueAsString(node);
-        } catch (JsonProcessingException e) {
-            throw invalid("invalid nested JSON");
-        }
+    private String renderNestedJson(JsonNode node) {
+        return JsonHashUtil.toJsonOrNull(objectMapper, node, e -> invalid("invalid nested JSON"));
     }
 
     private void requireRange(BigDecimal value, BigDecimal min, BigDecimal max, String fieldName) {

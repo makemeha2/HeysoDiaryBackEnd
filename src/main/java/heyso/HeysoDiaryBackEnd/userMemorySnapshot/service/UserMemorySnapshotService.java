@@ -1,10 +1,7 @@
 package heyso.HeysoDiaryBackEnd.userMemorySnapshot.service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +23,7 @@ import heyso.HeysoDiaryBackEnd.userMemorySnapshot.support.UserMemorySnapshotAiCl
 import heyso.HeysoDiaryBackEnd.userMemorySnapshot.support.UserMemorySnapshotAiClient.ResolvedSnapshotPrompt;
 import heyso.HeysoDiaryBackEnd.userMemorySnapshot.support.UserMemorySnapshotResponseParser;
 import heyso.HeysoDiaryBackEnd.userMemorySnapshot.type.UserMemorySnapshotException;
+import heyso.HeysoDiaryBackEnd.utils.JsonHashUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -106,9 +104,11 @@ public class UserMemorySnapshotService {
 
     private SnapshotSourceInput buildSourceInput(Long userId, LocalDate sourceFromDate, LocalDate sourceToDate,
             List<UserMemorySnapshotEventSource> events, List<UserMemorySnapshotProfileSource> profiles) {
-        String eventsJson = toJson(events);
-        String profilesJson = toJson(profiles);
-        String sourceHash = sha256(eventsJson + "\n" + profilesJson + "\n" + sourceFromDate + "\n" + sourceToDate);
+        String eventsJson = renderSourceJson(events);
+        String profilesJson = renderSourceJson(profiles);
+        String sourceHash = JsonHashUtil.sha256Hex(eventsJson + "\n" + profilesJson + "\n" + sourceFromDate + "\n"
+                + sourceToDate, e -> new UserMemorySnapshotException("Failed to build user memory snapshot source hash",
+                        e));
 
         Map<String, String> variables = new LinkedHashMap<>();
         variables.put("source_from_date", sourceFromDate.toString());
@@ -147,7 +147,7 @@ public class UserMemorySnapshotService {
         snapshot.setTraitSummaryJson(parsed.traitSummaryJson());
         snapshot.setSourceFromDate(sourceFromDate);
         snapshot.setSourceToDate(sourceToDate);
-        snapshot.setSourceJson(toJson(sourceMeta));
+        snapshot.setSourceJson(renderSourceJson(sourceMeta));
         return snapshot;
     }
 
@@ -162,21 +162,9 @@ public class UserMemorySnapshotService {
                 .orElse(null);
     }
 
-    private String toJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (Exception e) {
-            throw new UserMemorySnapshotException("Failed to render user memory snapshot source JSON", e);
-        }
-    }
-
-    private String sha256(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (Exception e) {
-            throw new UserMemorySnapshotException("Failed to build user memory snapshot source hash", e);
-        }
+    private String renderSourceJson(Object value) {
+        return JsonHashUtil.toJson(objectMapper, value,
+                e -> new UserMemorySnapshotException("Failed to render user memory snapshot source JSON", e));
     }
 
     private record SnapshotSourceInput(

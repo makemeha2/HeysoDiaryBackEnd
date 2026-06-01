@@ -23,6 +23,7 @@ import heyso.HeysoDiaryBackEnd.diaryAnalysis.support.DiaryAnalysisAiClient.Resol
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.support.DiaryAnalysisResponseParser;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisErrorCode;
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.type.DiaryAnalysisException;
+import heyso.HeysoDiaryBackEnd.utils.JsonHashUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -125,10 +126,10 @@ public class DiaryAnalysisService {
         variables.put("title", StringUtils.defaultString(candidate.getTitle()));
         variables.put("content_md", StringUtils.defaultString(candidate.getContentMd()));
         variables.put("mood_id", StringUtils.defaultString(candidate.getMoodId()));
-        variables.put("tags_json", toJson(tags == null ? List.of() : tags));
-        variables.put("trait_definitions_json", toJson(toPromptTraitKeys(referenceData.traits())));
-        variables.put("event_type_codes_json", toJson(referenceData.eventTypes()));
-        variables.put("emotion_codes_json", toJson(referenceData.emotions()));
+        variables.put("tags_json", renderPromptVariableJson(tags == null ? List.of() : tags));
+        variables.put("trait_definitions_json", renderPromptVariableJson(toPromptTraitKeys(referenceData.traits())));
+        variables.put("event_type_codes_json", renderPromptVariableJson(referenceData.eventTypes()));
+        variables.put("emotion_codes_json", renderPromptVariableJson(referenceData.emotions()));
         return variables;
     }
 
@@ -151,13 +152,10 @@ public class DiaryAnalysisService {
     //             .toList();
     // }
 
-    private String toJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (Exception e) {
-            throw new DiaryAnalysisException(DiaryAnalysisErrorCode.INTERNAL_ERROR,
-                    "Failed to render diary analysis prompt variables", e);
-        }
+    private String renderPromptVariableJson(Object value) {
+        return JsonHashUtil.toJson(objectMapper, value,
+                e -> new DiaryAnalysisException(DiaryAnalysisErrorCode.INTERNAL_ERROR,
+                        "Failed to render diary analysis prompt variables", e));
     }
 
     private enum ProcessResult {
