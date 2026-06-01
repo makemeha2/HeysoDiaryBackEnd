@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.userMemorySnapshot.mapper.UserMemorySnapshotMapper">
+
+    <select id="selectChangedUserIds" resultType="long">
+        SELECT source.user_id
+        FROM (
+            SELECT user_id, MAX(updated_at) AS latest_source_updated_at
+            FROM (
+                SELECT e.user_id, e.updated_at
+                FROM tb_diary_event e
+                INNER JOIN tb_diary d
+                    ON d.diary_id = e.diary_id
+                   AND d.user_id = e.user_id
+                   AND d.is_deleted = 0
+                WHERE e.is_active = 1
+                  AND d.diary_date BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 89 DAY) AND CURRENT_DATE
+
+                UNION ALL
+
+                SELECT p.user_id, p.updated_at
+                FROM tb_user_trait_profile p
+                WHERE p.is_active = 1
+            ) raw_source
+            GROUP BY user_id
+        ) source
+        LEFT JOIN tb_user_memory_snapshot snapshot
+            ON snapshot.user_id = source.user_id
+           AND snapshot.is_active = 1
+        WHERE snapshot.snapshot_id IS NULL
+           OR source.latest_source_updated_at &gt; snapshot.generated_at
+        ORDER BY source.user_id
+    </select>
+
+    <select id="selectActiveEventSources"
+            resultType="heyso.HeysoDiaryBackEnd.userMemorySnapshot.model.UserMemorySnapshotEventSource">
+        SELECT
+            e.event_id,
+            e.diary_id,
+            d.diary_date,
+            e.event_type,
+            e.event_title,
+            e.event_summary,
+            e.emotion,
+            e.emotion_intensity,
+            e.confidence,
+            e.evidence_text,
+            e.people_json,
+            e.places_json,
+            e.activities_json,
+            e.relationship_json,
+            e.causality_json,
+            e.pattern_candidate_json,
+            e.updated_at
+        FROM tb_diary_event e
+        INNER JOIN tb_diary d
+            ON d.diary_id = e.diary_id
+           AND d.user_id = e.user_id
+           AND d.is_deleted = 0
+        WHERE e.user_id = #{userId}
+          AND e.is_active = 1
+          AND d.diary_date BETWEEN #{sourceFromDate} AND #{sourceToDate}
+        ORDER BY d.diary_date DESC, e.event_id DESC
+    </select>
+
+    <select id="selectActiveProfileSources"
+            resultType="heyso.HeysoDiaryBackEnd.userMemorySnapshot.model.UserMemorySnapshotProfileSource">
+        SELECT
+            p.profile_id,
+            p.trait_key,
+            t.trait_category,
+            t.trait_name,
+            p.long_term_score,
+            p.recent_score,
+            p.confidence,
+            p.evidence_count,
+            p.calculated_date,
+            p.summary_text,
+            p.updated_at
+        FROM tb_user_trait_profile p
+        LEFT JOIN tb_mst_trait_definition t
+            ON t.trait_key = p.trait_key
+        WHERE p.user_id = #{userId}
+          AND p.is_active = 1
+        ORDER BY t.trait_category, t.sort_seq, p.trait_key
+    </select>
+
+    <select id="selectNextSnapshotVersion" resultType="int">
+        SELECT COALESCE(MAX(snapshot_version), 0) + 1
+        FROM tb_user_memory_snapshot
+        WHERE user_id = #{userId}
+    </select>
+
+    <update id="deactivateActiveSnapshots">
+        UPDATE tb_user_memory_snapshot
+        SET
+            is_active = 0,
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND is_active = 1
+    </update>
+
+    <insert id="insertSnapshot"
+            parameterType="heyso.HeysoDiaryBackEnd.userMemorySnapshot.model.UserMemorySnapshot"
+            useGeneratedKeys="true"
+            keyProperty="snapshotId">
+        INSERT INTO tb_user_memory_snapshot (
+            user_id,
+            snapshot_version,
+            is_active,
+            summary_text,
+            recurring_themes_json,
+            important_people_json,
+            stress_factors_json,
+            recovery_factors_json,
+            trait_summary_json,
+            source_from_date,
+            source_to_date,
+            source_json,
+            generated_at,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{userId},
+            #{snapshotVersion},
+            1,
+            #{summaryText},
+            #{recurringThemesJson, jdbcType=LONGVARCHAR},
+            #{importantPeopleJson, jdbcType=LONGVARCHAR},
+            #{stressFactorsJson, jdbcType=LONGVARCHAR},
+            #{recoveryFactorsJson, jdbcType=LONGVARCHAR},
+            #{traitSummaryJson, jdbcType=LONGVARCHAR},
+            #{sourceFromDate},
+            #{sourceToDate},
+            #{sourceJson, jdbcType=LONGVARCHAR},
+            NOW(),
+            NOW(),
+            NOW()
+        )
+    </insert>
+</mapper>
