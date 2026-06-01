@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="heyso.HeysoDiaryBackEnd.userTraitProfile.mapper.UserTraitProfileMapper">
+
+    <select id="selectChangedUserIds" resultType="long">
+        SELECT changed.user_id
+        FROM (
+            SELECT DISTINCT e.user_id
+            FROM tb_diary_trait_evidence e
+            LEFT JOIN (
+                SELECT user_id, MAX(updated_at) AS latest_profile_updated_at
+                FROM tb_user_trait_profile
+                GROUP BY user_id
+            ) p ON p.user_id = e.user_id
+            WHERE p.latest_profile_updated_at IS NOT NULL
+              AND e.updated_at &gt; p.latest_profile_updated_at
+
+            UNION
+
+            SELECT DISTINCT s.user_id
+            FROM tb_diary_analysis_state s
+            INNER JOIN (
+                SELECT user_id, MAX(updated_at) AS latest_profile_updated_at
+                FROM tb_user_trait_profile
+                GROUP BY user_id
+            ) p ON p.user_id = s.user_id
+            WHERE s.analysis_status = 'STALE'
+              AND s.updated_at &gt; p.latest_profile_updated_at
+
+            UNION
+
+            SELECT DISTINCT e.user_id
+            FROM tb_diary_trait_evidence e
+            INNER JOIN tb_diary d
+                ON d.diary_id = e.diary_id
+               AND d.user_id = e.user_id
+               AND d.is_deleted = 0
+            INNER JOIN tb_mst_trait_definition t
+                ON t.trait_key = e.trait_key
+               AND t.is_active = 1
+               AND t.trait_scope = 'CORE'
+               AND t.approval_status = 'APPROVED'
+               AND t.auto_apply_enabled = 1
+            WHERE e.is_active = 1
+              AND e.confidence &gt;= 0.700
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM tb_user_trait_profile p
+                  WHERE p.user_id = e.user_id
+              )
+        ) changed
+        ORDER BY changed.user_id
+    </select>
+
+    <select id="selectTraitEvidenceAggregates"
+            resultType="heyso.HeysoDiaryBackEnd.userTraitProfile.model.UserTraitEvidenceAggregate">
+        SELECT
+            e.trait_key AS trait_key,
+            SUM(e.signal_score * e.confidence) AS long_term_weighted_score_sum,
+            SUM(e.confidence) AS long_term_confidence_sum,
+            COUNT(*) AS evidence_count,
+            SUM(CASE
+                WHEN d.diary_date &gt;= #{recentFromDate}
+                THEN e.signal_score * e.confidence
+                ELSE 0
+            END) AS recent_weighted_score_sum,
+            SUM(CASE
+                WHEN d.diary_date &gt;= #{recentFromDate}
+                THEN e.confidence
+                ELSE 0
+            END) AS recent_confidence_sum
+        FROM tb_diary_trait_evidence e
+        INNER JOIN tb_diary d
+            ON d.diary_id = e.diary_id
+           AND d.user_id = e.user_id
+           AND d.is_deleted = 0
+        INNER JOIN tb_mst_trait_definition t
+            ON t.trait_key = e.trait_key
+           AND t.is_active = 1
+           AND t.trait_scope = 'CORE'
+           AND t.approval_status = 'APPROVED'
+           AND t.auto_apply_enabled = 1
+        WHERE e.user_id = #{userId}
+          AND e.is_active = 1
+          AND e.confidence &gt;= #{confidenceThreshold}
+        GROUP BY e.trait_key
+        HAVING SUM(e.confidence) &gt; 0
+        ORDER BY e.trait_key
+    </select>
+
+    <insert id="upsertUserTraitProfiles">
+        INSERT INTO tb_user_trait_profile (
+            user_id,
+            trait_key,
+            long_term_score,
+            recent_score,
+            confidence,
+            evidence_count,
+            calculated_date,
+            is_active,
+            created_at,
+            updated_at
+        )
+        VALUES
+        <foreach collection="profiles" item="profile" separator=",">
+            (
+                #{profile.userId},
+                #{profile.traitKey},
+                #{profile.longTermScore},
+                #{profile.recentScore},
+                #{profile.confidence},
+                #{profile.evidenceCount},
+                #{profile.calculatedDate},
+                1,
+                NOW(),
+                NOW()
+            )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            long_term_score = VALUES(long_term_score),
+            recent_score = VALUES(recent_score),
+            confidence = VALUES(confidence),
+            evidence_count = VALUES(evidence_count),
+            calculated_date = VALUES(calculated_date),
+            is_active = 1,
+            updated_at = NOW()
+    </insert>
+
+    <update id="deactivateActiveProfilesExceptTraitKeys">
+        UPDATE tb_user_trait_profile
+        SET
+            is_active = 0,
+            calculated_date = #{calculatedDate},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND is_active = 1
+          AND trait_key NOT IN
+          <foreach collection="traitKeys" item="traitKey" open="(" separator="," close=")">
+              #{traitKey}
+          </foreach>
+    </update>
+
+    <update id="deactivateAllActiveProfiles">
+        UPDATE tb_user_trait_profile
+        SET
+            is_active = 0,
+            calculated_date = #{calculatedDate},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND is_active = 1
+    </update>
+</mapper>

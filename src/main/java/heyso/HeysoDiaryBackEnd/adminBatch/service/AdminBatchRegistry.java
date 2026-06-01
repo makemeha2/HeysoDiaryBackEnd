@@ -20,6 +20,7 @@ public class AdminBatchRegistry {
     public AdminBatchRegistry(
             @Value("${app.diary.summary.scheduler.cron:0 0 3 * * *}") String diarySummaryCron,
             @Value("${app.diary.analysis.scheduler.cron:0 */10 * * * *}") String diaryAnalysisCron,
+            @Value("${app.user-trait-profile.scheduler.cron:0 0 4 * * *}") String userTraitProfileCron,
             Map<String, AdminBatchRunner> runners) {
         this.definitions = List.of(
                 new AdminBatchDefinition(
@@ -35,7 +36,21 @@ public class AdminBatchRegistry {
                         "마지막 수정 후 1시간 지난 dirty 일기를 AI로 구조화 분석합니다.",
                         diaryAnalysisCron,
                         "Asia/Seoul",
-                        runners.get("diaryAnalysisBatchRunner")));
+                        runners.get("diaryAnalysisBatchRunner")),
+                new AdminBatchDefinition(
+                        AdminBatchKeys.USER_TRAIT_PROFILE,
+                        "사용자 trait profile 집계",
+                        "active trait evidence를 사용자 단위 장기 profile로 집계합니다.",
+                        userTraitProfileCron,
+                        "Asia/Seoul",
+                        runners.get("userTraitProfileBatchRunner")),
+                new AdminBatchDefinition(
+                        AdminBatchKeys.USER_MEMORY_SNAPSHOT,
+                        "사용자 장기 메모리 snapshot 생성",
+                        "active event와 trait profile을 AI로 요약해 최신 memory snapshot을 생성합니다.",
+                        "profile batch 직후 실행",
+                        "Asia/Seoul",
+                        runners.get("userMemorySnapshotBatchRunner")));
         this.definitionMap = definitions.stream()
                 .collect(Collectors.toUnmodifiableMap(AdminBatchDefinition::batchKey, Function.identity()));
     }

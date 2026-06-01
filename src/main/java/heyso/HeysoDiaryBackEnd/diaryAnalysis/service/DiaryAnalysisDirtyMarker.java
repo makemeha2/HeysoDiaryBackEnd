@@ -1,13 +1,12 @@
 package heyso.HeysoDiaryBackEnd.diaryAnalysis.service;
 
 import heyso.HeysoDiaryBackEnd.diaryAnalysis.mapper.DiaryAnalysisMapper;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import heyso.HeysoDiaryBackEnd.utils.JsonHashUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +34,7 @@ public class DiaryAnalysisDirtyMarker {
                 + "\n" + (diaryDate == null ? "" : diaryDate)
                 + "\n" + canonical(moodId)
                 + "\n" + canonicalTags(tags);
-        return sha256Hex(canonicalText);
+        return JsonHashUtil.sha256Hex(canonicalText);
     }
 
     private String canonical(String value) {
@@ -53,17 +52,4 @@ public class DiaryAnalysisDirtyMarker {
                 .collect(Collectors.joining("|"));
     }
 
-    private String sha256Hex(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
-            StringBuilder builder = new StringBuilder(hash.length * 2);
-            for (byte b : hash) {
-                builder.append(String.format("%02x", b));
-            }
-            return builder.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 digest is not available", e);
-        }
-    }
 }

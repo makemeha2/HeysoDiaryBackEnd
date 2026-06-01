@@ -1,7 +1,5 @@
 package heyso.HeysoDiaryBackEnd.diaryAi.service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -46,6 +44,7 @@ import heyso.HeysoDiaryBackEnd.mypage.mapper.UserProfileMapper;
 import heyso.HeysoDiaryBackEnd.mypage.model.UserAIFeedbackSetting;
 import heyso.HeysoDiaryBackEnd.mypage.model.UserProfile;
 import heyso.HeysoDiaryBackEnd.user.model.User;
+import heyso.HeysoDiaryBackEnd.utils.JsonHashUtil;
 import heyso.HeysoDiaryBackEnd.utils.TextSnippetUtil;
 import lombok.RequiredArgsConstructor;
 
@@ -157,7 +156,8 @@ public class DiaryAiService {
         DiaryAiResolution resolution = diaryAiClient.resolve(callInput);
 
         // 6. 확정된 프롬프트로 실행 기록 선행 저장 (AI 호출 전에 저장해야 실패 추적이 가능)
-        String promptHash = sha256(resolution.renderedSystemPrompt() + "\n---\n" + resolution.renderedUserPrompt());
+        String promptHash = JsonHashUtil
+                .sha256Hex(resolution.renderedSystemPrompt() + "\n---\n" + resolution.renderedUserPrompt());
 
         DiaryAiRun run = DiaryAiRun.builder()
                 .diaryId(diaryId)
@@ -397,22 +397,6 @@ public class DiaryAiService {
     // =========================================================================
     // 유틸
     // =========================================================================
-
-    /** 시스템/유저 프롬프트를 합산한 SHA-256 해시 — 프롬프트 변경 여부 감지용. */
-    private String sha256(String input) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
-
-            StringBuilder sb = new StringBuilder();
-            for (byte b : digest) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (Exception e) {
-            return null;
-        }
-    }
 
     /** 오류 메시지를 DB 컬럼 최대 길이(2,000자)에 맞게 자른다. */
     private String safeErrorMessage(String message) {
