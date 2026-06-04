@@ -76,6 +76,7 @@ public class MonitoringAuthenticationEntryPoint implements AuthenticationEntryPo
         }
 
         String uri = request.getRequestURI();
-        return uri != null && ("/actuator/health".equals(uri) || uri.startsWith("/actuator/health/"));
+        return uri != null && ("/actuator/health".equals(uri) || uri.startsWith("/actuator/health/") || uri
+                .startsWith("/actuator/prometheus"));
     }
 }

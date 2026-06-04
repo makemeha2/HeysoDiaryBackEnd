@@ -59,7 +59,8 @@ public class SecurityConfig {
                                         auth.requestMatchers(
                                                         "/actuator/health",
                                                         "/actuator/health/**",
-                                                        "/actuator/info")
+                                                        "/actuator/info",
+                                                        "/actuator/prometheus")
                                                         .permitAll();
 
                                         // ✅ 사용자 정의 엔드포인트 규칙
